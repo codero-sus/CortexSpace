@@ -1,0 +1,24 @@
+{
+  "name": "MyWorkspace AI",
+  "short_name": "MyWorkspace",
+  "description": "A fast, self-hosted AI workspace with chat, files, an agent, and web tools.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0c11",
+  "theme_color": "#0f1115",
+  "icons": [
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

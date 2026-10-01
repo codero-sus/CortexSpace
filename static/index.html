@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="MyWorkspace AI — a fast, self-hosted AI workspace with chat, files, an agent, and web tools.">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MyWorkspace AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="stylesheet" href="/static/styles.css">
+<link rel="stylesheet" href="/static/styles-w6.css">
+</head>
+<body>
+<a class="skip-link" href="#composer">Skip to chat</a>
+<div id="aria-live" class="sr-only" aria-live="polite"></div>
+<div id="offline-banner" class="offline-banner hidden">Offline — changes are saved locally and will sync when the connection returns.</div>
+
+<!-- icon set (feather-style, 24px grid) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M6 14l1.5-4.5A2 2 0 0 1 9.4 8H21a1 1 0 0 1 .97 1.24L20.5 14"/><path d="M2.59 18.53A2 2 0 0 0 4.4 20.5h15.2a2 2 0 0 0 1.84-1.2L23 14H6z"/><path d="M2 8V5a2 2 0 0 1 2-2h3.17a2 2 0 0 1 1.66.9L10 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+    <symbol id="i-command" viewBox="0 0 24 24"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+    <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></symbol>
+    <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-collapse" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3.5h6a1 1 0 011 1V9l2.6 3.5a.5.5 0 01-.4.8H5.8a.5.5 0 01-.4-.8L8 9V4.5a1 1 0 011-1z"/><path d="M12 13.3V21"/></symbol>
+  <symbol id="i-fork" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2.2"/><circle cx="18" cy="5" r="2.2"/><circle cx="12" cy="19" r="2.2"/><path d="M6 7.2v1.3a4 4 0 004 4h4a4 4 0 004-4V7.2M12 12.5v4.3"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20v-6M11 20V6M17 20v-9M3 20h18"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+  <symbol id="i-restore" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></symbol>
+  <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></symbol>
+  <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6"/></symbol>
+  <symbol id="i-find" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M9 11h4"/></symbol>
+  <symbol id="i-wrap" viewBox="0 0 24 24"><path d="M3 5h13a3 3 0 0 1 0 6H6M3 5v6M6 11l-1.5 2M3 19h18"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0zM7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.6L12 20l-7.5-7.4a5 5 0 1 1 7.5-6.6 5 5 0 1 1 7.5 6.6z"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></symbol>
+  <symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM23 9l-6 6M17 9l6 6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2l10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4L12 22l-9-9 8.6-8.6a2 2 0 0 1 1.4-.6H19a2 2 0 0 1 2 2v6a2 2 0 0 1-.4 1.4z"/><circle cx="16" cy="8" r="1.4"/></symbol>
+  <symbol id="i-wand" viewBox="0 0 24 24"><path d="M15 4V2M15 10V8M11 6h2M19 6h2M17.8 3.2l-1.4 1.4M17.8 8.8l-1.4-1.4M13.2 8.8l1.4-1.4M3 21L13 11"/></symbol>
+  <symbol id="i-cloud-dl" viewBox="0 0 24 24"><path d="M20 17.6A5 5 0 0 0 18 8a7 7 0 0 0-13.4 2A4.5 4.5 0 0 0 5 18h1M12 12v7M9 16l3 3 3-3"/></symbol>
+  <symbol id="i-cloud-up" viewBox="0 0 24 24"><path d="M20 17.6A5 5 0 0 0 18 8a7 7 0 0 0-13.4 2A4.5 4.5 0 0 0 5 18h1M12 19v-7M9 15l3-3 3 3"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 22c4.4 0 7-2.8 7-6.5 0-3.2-2-5.3-3.5-7C14 6.7 13 4.8 13 2c-3 2-5.5 5-5.5 8 0 1.5.5 2.5.5 2.5S7 11.5 7 10c-1.3 1.5-2 3.2-2 5.5C5 19.2 7.6 22 12 22z"/></symbol>
+  <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M5 12.5a11 11 0 0 1 14 0M8.5 15.5a6.5 6.5 0 0 1 7 0M2 9a16 16 0 0 1 20 0M12 19h.01"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+  <symbol id="i-party" viewBox="0 0 24 24"><path d="M4 21c.5-4 2-7 5-9M3 8l5 2M8 3l2 5M13 3c3 1 5 3 6 6l-4 1-1 4c-3-1-6-3-7-6zM17 17h.01M20 21h.01"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9.5 2A2.5 2.5 0 0 0 7 4.5v.6A3.5 3.5 0 0 0 4 8.5c0 .8.3 1.6.7 2.2A3.5 3.5 0 0 0 3 14a3.5 3.5 0 0 0 2 3.2V18a3 3 0 0 0 3 3 2.5 2.5 0 0 0 3-2.5V4.5A2.5 2.5 0 0 0 9.5 2zM14.5 2A2.5 2.5 0 0 1 17 4.5v.6a3.5 3.5 0 0 1 3 3.4c0 .8-.3 1.6-.7 2.2A3.5 3.5 0 0 1 21 14a3.5 3.5 0 0 1-2 3.2V18a3 3 0 0 1-3 3 2.5 2.5 0 0 1-3-2.5V4.5A2.5 2.5 0 0 1 14.5 2z"/></symbol>
+  <symbol id="i-bookmark-plus" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2zM12 7v6M9 10h6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+  </defs>
+</svg>
+
+<div id="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside id="sidebar" class="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.2L21 10.5l-5.4 4 1.7 6.6L12 17.4l-5.3 3.7 1.7-6.6-5.4-4 6.6-2.3z" fill="currentColor"/></svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">MyWorkspace</span>
+        <span class="brand-sub">AI workspace</span>
+      </div>
+      <button class="icon-btn" id="btn-new-chat-top" title="New chat (⌘N)"><svg><use href="#i-plus"/></svg></button>
+    </div>
+
+    <div class="side-section" id="sec-chats">
+      <button class="side-label head" id="sec-chats-head" title="Collapse section">
+        <span>Chats</span><svg class="sec-chev"><use href="#i-chev-d"/></svg>
+      </button>
+      <div class="sec-body">
+        <div class="chat-search">
+          <svg class="side-search-ic"><use href="#i-search"/></svg>
+          <input id="chat-filter" type="text" placeholder="Filter chats…" spellcheck="false">
+        </div>
+        <div id="chat-list" class="chat-list"></div>
+      </div>
+    </div>
+
+    <div class="side-section grow" id="sec-workspace">
+      <div class="side-row">
+        <button class="side-label head" id="sec-workspace-head" title="Collapse section">
+          <span>Workspace</span><svg class="sec-chev"><use href="#i-chev-d"/></svg>
+        </button>
+        <span class="side-act-group">
+          <button class="icon-btn sm" id="btn-tree-collapse" title="Collapse all folders" style="display:none"><svg><use href="#i-collapse"/></svg></button>
+          <button class="icon-btn sm" id="btn-tree-expand" title="Expand all folders" style="display:none"><svg><use href="#i-expand"/></svg></button>
+          <button class="icon-btn sm" id="btn-new-folder" title="New folder"><svg><use href="#i-folder"/></svg></button>
+          <button class="icon-btn sm" id="btn-new-note" title="New note"><svg><use href="#i-file"/></svg></button>
+        </span>
+      </div>
+      <div class="sec-body grow">
+        <div class="tree-tools">
+          <div class="tree-search">
+            <svg class="side-search-ic"><use href="#i-search"/></svg>
+            <input id="tree-filter" type="text" placeholder="Filter files…" spellcheck="false">
+          </div>
+          <select id="tree-sort" class="tree-sort" title="Sort tree">
+            <option value="name">Name</option>
+            <option value="size">Size</option>
+            <option value="mtime">Modified</option>
+          </select>
+          <button class="icon-btn sm" id="btn-tree-favs" title="Show favorites only"><svg><use href="#i-star"/></svg></button>
+        </div>
+        <div id="file-tree" class="file-tree stagger"></div>
+      </div>
+    </div>
+
+    <div class="side-lib">
+      <button class="side-lib-btn" id="btn-templates" title="Note templates"><svg><use href="#i-layers"/></svg>Templates</button>
+      <button class="side-lib-btn" id="btn-prompt-lib" title="Prompt library"><svg><use href="#i-wand"/></svg>Prompts</button>
+    </div>
+
+    <div class="side-foot">
+      <div id="streak-goal" class="streak-goal">
+        <button class="streak-flame" id="streak-flame" title="Usage streak — open Insights"><svg><use href="#i-flame"/></svg><span id="streak-num">–</span></button>
+        <button class="goal-ring" id="goal-ring" title="Daily goal — click to set"><span id="goal-bar"></span><span class="goal-txt" id="goal-txt">goal</span></button>
+        <span class="side-quote" id="side-quote" title="Quote of the day"></span>
+      </div>
+      <div id="ws-usage" class="ws-usage" title="Workspace usage">
+        <svg class="wu-ic"><use href="#i-folder"/></svg>
+        <span id="ws-usage-text">…</span>
+        <button class="icon-btn sm wu-dl" id="btn-dl-ws" title="Download workspace as .zip"><svg><use href="#i-download"/></svg></button>
+      </div>
+      <button id="provider-chip" class="provider-chip" title="Open settings">
+        <span class="dot" id="provider-dot"></span>
+        <span class="provider-name" id="provider-label">…</span>
+        <svg class="pc-chev"><use href="#i-chev-r"/></svg>
+      </button>
+      <button class="icon-btn sm" id="btn-theme" title="Toggle theme (⌘.)"><svg><use href="#i-moon"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="resize-handle" id="rs-side" title="Drag to resize sidebar (double-click to reset)"></div>
+
+  <!-- ============ MAIN ============ -->
+  <main id="main" class="main">
+    <!-- chat view -->
+    <section id="view-chat" class="view">
+      <header class="topbar">
+        <button class="icon-btn" id="btn-sidebar-toggle" title="Toggle sidebar (⌘B)"><svg><use href="#i-sidebar"/></svg></button>
+        <div class="chat-title-wrap">
+          <input id="chat-title" class="chat-title" value="New chat" spellcheck="false">
+        </div>
+        <div class="topbar-right">
+          <span class="conn-ind" id="conn-ind" title="Connection"><svg><use href="#i-wifi"/></svg></span>
+          <button class="icon-btn" id="btn-global-search" title="Search everything (⌘F)"><svg><use href="#i-search"/></svg></button>
+          <span class="badge" id="model-badge" title="Active model"><svg class="b-ic"><use href="#i-zap"/></svg><span id="model-badge-text">—</span></span>
+          <span class="tb-sep" aria-hidden="true"></span>
+          <button class="icon-btn" id="btn-zoom-out" title="Zoom out (⌘−)"><svg><use href="#i-zoom-out"/></svg></button>
+          <button class="icon-btn" id="btn-zoom-in" title="Zoom in (⌘+)"><svg><use href="#i-zoom-in"/></svg></button>
+          <button class="icon-btn" id="btn-pomodoro" title="Pomodoro timer (P)"><svg><use href="#i-timer"/></svg><span id="pomo-badge" class="pomo-badge hidden"></span></button>
+          <button class="icon-btn" id="btn-mute" title="Mute sounds"><svg><use href="#i-volume-x"/></svg></button>
+          <button class="icon-btn" id="btn-dnd" title="Do not disturb — hide toasts"><svg><use href="#i-shield"/></svg></button>
+          <button class="icon-btn" id="btn-export-chat" title="Export chat as Markdown (⌘E)" disabled><svg><use href="#i-download"/></svg></button>
+          <button class="icon-btn" id="btn-chat-menu" title="Chat menu"><svg><use href="#i-more"/></svg></button>
+          <button class="icon-btn" id="btn-focus" title="Focus mode (⌘\)"><svg><use href="#i-focus"/></svg></button>
+          <button class="icon-btn" id="btn-about" title="About MyWorkspace AI"><svg><use href="#i-info"/></svg></button>
+          <button class="icon-btn" id="btn-panel-toggle" title="Toggle panel (⌘J)"><svg><use href="#i-panel"/></svg></button>
+        </div>
+      </header>
+
+      <div id="messages" class="messages" data-empty="true">
+        <button id="jump-btn" class="jump-btn hidden" title="Jump to latest">
+          <svg><use href="#i-chev-d"/></svg><span id="jump-count"></span>
+        </button>
+        <div id="empty-state" class="empty-state">
+          <div class="empty-mark">
+            <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.2L21 10.5l-5.4 4 1.7 6.6L12 17.4l-5.3 3.7 1.7-6.6-5.4-4 6.6-2.3z" fill="currentColor"/></svg>
+          </div>
+          <h1 class="empty-h1"><span id="empty-greet">Hey</span>, what do you want to get done?</h1>
+          <p class="empty-sub">Chat with the agent, or open a file from the workspace on the left.</p>
+          <div class="suggestions">
+            <button class="suggestion" data-text="list my files"><svg><use href="#i-folder"/></svg>List my files</button>
+            <button class="suggestion" data-text="read welcome.md"><svg><use href="#i-eye"/></svg>Read welcome.md</button>
+            <button class="suggestion" data-text="create a note about my coffee habits"><svg><use href="#i-edit"/></svg>Draft a note</button>
+            <button class="suggestion" data-text="run python that prints 21*21"><svg><use href="#i-terminal"/></svg>Run some Python</button>
+            <button class="suggestion" id="suggestion-surprise"><svg><use href="#i-dice"/></svg>Surprise me</button>
+          </div>
+        </div>
+        <div id="msg-list" class="msg-list stagger"></div>
+      </div>
+
+      <div class="composer-wrap">
+        <div id="quick-actions" class="quick-actions" hidden>
+          <span class="qa-label">Quick actions</span>
+          <div class="qa-row" id="qa-row"></div>
+        </div>
+        <div id="context-chips" class="context-chips"></div>
+        <div class="composer" id="composer-box">
+          <textarea id="composer" rows="1" placeholder="Ask anything…  ( @ to attach a file, / for commands )" spellcheck="false"></textarea>
+          <div class="composer-bar">
+            <div class="composer-left">
+              <button class="chip-btn" id="btn-attach" title="Attach a workspace file"><svg><use href="#i-file"/></svg>Attach</button>
+              <button class="chip-btn ghost" id="btn-clear-composer" title="Clear composer (⌘W)"><svg><use href="#i-x"/></svg>Clear</button>
+              <span class="composer-hint" id="composer-hint">Enter to send · Shift+Enter for a new line</span>
+            </div>
+            <div class="composer-right">
+              <span class="comp-counts" id="comp-counts"></span>
+              <span class="draft-flag hidden" id="draft-flag">draft saved</span>
+              <button id="btn-send" class="send-btn" disabled title="Send (Enter)">
+                <svg class="send-ic"><use href="#i-send"/></svg>
+                <svg class="stop-ic"><use href="#i-stop"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="composer-foot">
+          <span id="status-left">Ready</span>
+          <span id="status-right"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- settings view -->
+    <section id="view-settings" class="view hidden">
+      <header class="topbar">
+        <button class="icon-btn" id="btn-settings-back" title="Back to chat"><svg><use href="#i-chev-r" style="transform:rotate(180deg)"/></svg></button>
+        <div class="chat-title-wrap"><span class="chat-title static">Settings</span></div>
+      </header>
+      <div class="settings-scroll">
+        <div class="settings-inner">
+          <div class="set-search-row">
+            <input id="set-search" type="text" placeholder="Search settings… (type a name to jump)" spellcheck="false">
+            <span id="set-search-count"></span>
+          </div>
+
+          <div class="set-card">
+            <h3>Model provider</h3>
+            <p class="set-desc">Who the agent thinks with. Everything else in the workspace works the same.</p>
+            <div class="provider-cards" id="provider-cards"></div>
+
+            <div class="set-grid" id="prov-ollama">
+              <label class="set-field">
+                <span>Ollama base URL</span>
+                <input id="set-ollama-url" type="text" spellcheck="false" placeholder="http://127.0.0.1:11434">
+              </label>
+              <label class="set-field">
+                <span>Model <button class="link-btn" id="btn-refresh-ollama" type="button">refresh list</button></span>
+                <input id="set-ollama-model" type="text" list="ollama-models" spellcheck="false" placeholder="llama3.2">
+                <datalist id="ollama-models"></datalist>
+              </label>
+              <div class="set-test"><button class="btn ghost" id="btn-ping-ollama">Test connection</button><span id="ping-ollama" class="set-test-out"></span></div>
+            </div>
+
+            <div class="set-grid" id="prov-openrouter">
+              <label class="set-field">
+                <span>API key</span>
+                <input id="set-or-key" type="password" spellcheck="false" placeholder="sk-or-v1-…">
+              </label>
+              <label class="set-field">
+                <span>Model <button class="link-btn" id="btn-refresh-or" type="button">refresh list</button></span>
+                <input id="set-or-model" type="text" list="or-models" spellcheck="false" placeholder="openrouter/auto">
+                <datalist id="or-models"></datalist>
+              </label>
+              <label class="set-field">
+                <span>Site URL <em>(optional, attribution header)</em></span>
+                <input id="set-or-url" type="text" spellcheck="false" placeholder="https://yoursite.com">
+              </label>
+              <div class="set-test"><button class="btn ghost" id="btn-ping-or">Test key</button><span id="ping-or" class="set-test-out"></span></div>
+            </div>
+
+            <div class="set-grid" id="prov-openai">
+              <label class="set-field">
+                <span>Base URL <em>(OpenAI · Groq · LM Studio · vLLM · llama.cpp…)</em></span>
+                <input id="set-oai-url" type="text" spellcheck="false" placeholder="https://api.openai.com/v1">
+              </label>
+              <label class="set-field">
+                <span>API key</span>
+                <input id="set-oai-key" type="password" spellcheck="false" placeholder="sk-…">
+              </label>
+              <label class="set-field">
+                <span>Model <button class="link-btn" id="btn-refresh-oai" type="button">refresh list</button></span>
+                <input id="set-oai-model" type="text" list="oai-models" spellcheck="false" placeholder="gpt-4o-mini">
+                <datalist id="oai-models"></datalist>
+              </label>
+              <div class="set-test"><button class="btn ghost" id="btn-ping-oai">Test connection</button><span id="ping-oai" class="set-test-out"></span></div>
+            </div>
+          </div>
+
+          <div class="set-card">
+            <h3>Agent</h3>
+            <div class="set-grid two">
+              <label class="set-field">
+                <span>Temperature <em id="temp-val">0.4</em></span>
+                <input id="set-temp" type="range" min="0" max="2" step="0.1">
+              </label>
+              <label class="set-field">
+                <span>Max tokens <em id="mtok-val">2048</em></span>
+                <input id="set-mtok" type="range" min="256" max="8192" step="256">
+              </label>
+            </div>
+            <div class="set-grid two">
+              <label class="set-field">
+                <span>Max agent steps per turn</span>
+                <input id="set-steps" type="number" min="1" max="20">
+              </label>
+              <label class="set-field">
+                <span>Python execution</span>
+                <div class="toggle-row"><label class="switch"><input id="set-allow-py" type="checkbox"><span></span></label><em>exposes the run_python tool</em></div>
+              </label>
+            </div>
+            <div class="set-grid two">
+              <label class="set-field">
+                <span>Auto-approve tool actions</span>
+                <div class="toggle-row"><label class="switch"><input id="set-auto-approve" type="checkbox"><span></span></label><em>skip approval cards for writes & code</em></div>
+              </label>
+              <label class="set-field">
+                <span>Web search</span>
+                <div class="toggle-row"><label class="switch"><input id="set-ddg" type="checkbox"><span></span></label><em>DuckDuckGo (no key needed)</em></div>
+              </label>
+            </div>
+            <label class="set-field">
+              <span>SearXNG instance URL <em>(optional, preferred search backend)</em></span>
+              <input id="set-searxng" type="text" spellcheck="false" placeholder="https://search.example.com">
+            </label>
+            <label class="set-field">
+              <span>System prompt <button class="link-btn" id="btn-reset-prompt" type="button">reset</button></span>
+              <textarea id="set-prompt" rows="5" spellcheck="false"></textarea>
+              <select id="persona-preset" class="persona-select">
+                <option value="">Persona presets…</option>
+                <option value="concise">Concise — short, direct answers</option>
+                <option value="detailed">Detailed — thorough, explained</option>
+                <option value="coder">Coder — code-first, practical</option>
+                <option value="writer">Writer — clear, polished prose</option>
+                <option value="brain">Brainstormer — ideas and options</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="set-card">
+            <h3>Agent tools</h3>
+            <p class="set-desc">Toggle which tools the agent may use. Disabled tools are hidden from the model and blocked at execution.</p>
+            <div class="tools-grid" id="set-tools"></div>
+            <div class="set-grid two">
+              <label class="set-field">
+                <span>Approval policy</span>
+                <select id="set-approve-policy">
+                  <option value="ask">Ask for approval (writes & code)</option>
+                  <option value="auto">Auto-approve everything</option>
+                  <option value="strict">Ask for everything</option>
+                </select>
+              </label>
+              <div class="set-field">
+                <span>Temperature presets</span>
+                <div class="preset-row" id="temp-presets">
+                  <button class="chip-btn" data-t="0.2">Focused 0.2</button>
+                  <button class="chip-btn" data-t="0.4">Balanced 0.4</button>
+                  <button class="chip-btn" data-t="0.8">Creative 0.8</button>
+                  <button class="chip-btn" data-t="1.2">Wild 1.2</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-grid two">
+              <div class="set-field">
+                <span>Max-steps presets</span>
+                <div class="preset-row" id="steps-presets">
+                  <button class="chip-btn" data-s="4">Quick · 4</button>
+                  <button class="chip-btn" data-s="10">Standard · 10</button>
+                  <button class="chip-btn" data-s="20">Deep · 20</button>
+                </div>
+              </div>
+              <div class="set-field">
+                <span>Estimated cost <em>(last 14 days, approx.)</em></span>
+                <div id="cost-est" class="cost-est">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-card">
+            <h3>Appearance</h3>
+            <div class="set-grid two">
+              <div class="set-field">
+                <span>Theme</span>
+                <div class="seg" id="seg-theme">
+                  <button type="button" data-v="dark">● Dark</button>
+                  <button type="button" data-v="light">○ Light</button>
+                </div>
+              </div>
+              <div class="set-field">
+                <span>Chat font size</span>
+                <div class="seg" id="seg-fs">
+                  <button type="button" data-v="s">Small</button>
+                  <button type="button" data-v="m">Medium</button>
+                  <button type="button" data-v="l">Large</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-grid">
+              <div class="set-field">
+                <span>Motion</span>
+                <div class="toggle-row"><label class="switch"><input id="set-motion" type="checkbox"><span></span></label><em>animations on (off = reduced motion)</em></div>
+              </div>
+              <div class="set-field">
+                <span>Notifications</span>
+                <div class="toggle-row"><label class="switch"><input id="set-notify" type="checkbox"><span></span></label><em>desktop alert when a turn finishes</em></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-card">
+            <h3>Interface preferences</h3>
+            <p class="set-desc">Fine-tuning. Stored only in this browser — reset any time.</p>
+            <div id="set-appear" class="appear-grid"></div>
+            <div class="set-grid">
+              <label class="set-field">
+                <span>Custom CSS <em>(advanced — saved in this browser)</em></span>
+                <textarea id="set-custom-css" rows="3" spellcheck="false" placeholder="e.g. .messages { max-width: 1100px; margin: 0 auto; }"></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="set-card">
+            <h3>Private by design</h3>
+            <p class="set-desc">
+              Chats, notes and settings live in <code>data/</code> on this machine. The only outbound calls are the
+              ones you configure — Ollama (usually local), OpenRouter, and web search.
+            </p>
+          </div>
+
+          <div class="set-card">
+            <h3>Data &amp; maintenance</h3>
+            <p class="set-desc">Back up everything, take it with you, or hand it back.</p>
+            <div class="set-grid" id="data-grid">
+              <div class="set-field row">
+                <span>Download backup <em>chats + settings as JSON</em></span>
+                <button class="btn ghost sm" id="btn-backup-dl"><svg><use href="#i-cloud-dl"/></svg>Export</button>
+              </div>
+              <div class="set-field row">
+                <span>Restore backup <em>re-imports what's missing</em></span>
+                <label class="btn ghost sm" for="backup-file">Import</label>
+                <input id="backup-file" type="file" accept="application/json" hidden>
+              </div>
+              <div class="set-field row">
+                <span>Export all chats <em>one Markdown per chat, zipped</em></span>
+                <button class="btn ghost sm" id="btn-export-all"><svg><use href="#i-download"/></svg>Zip</button>
+              </div>
+              <div class="set-field row">
+                <span>Vacuum database <em>reclaims disk space</em></span>
+                <button class="btn ghost sm" id="btn-vacuum">Vacuum</button>
+              </div>
+              <div class="set-field row">
+                <span>About <em>version, sizes, runtime</em></span>
+                <button class="btn ghost sm" id="btn-about-set"><svg><use href="#i-info"/></svg>About</button>
+              </div>
+            </div>
+            <div class="storage-meter" id="storage-meter" title="Disk usage"></div>
+          </div>
+
+          <div class="set-card danger-card">
+            <h3>Danger zone</h3>
+            <p class="set-desc">These actions are permanent and cannot be undone.</p>
+            <div class="set-grid">
+              <div class="set-field row">
+                <span>Delete all chats <em>keeps workspace files</em></span>
+                <button class="btn ghost sm danger" id="btn-danger-chats">Delete all chats</button>
+              </div>
+              <div class="set-field row">
+                <span>Reset workspace <em>clears files + versions</em></span>
+                <button class="btn ghost sm danger" id="btn-danger-ws">Reset workspace</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-actions">
+            <button id="btn-save-settings" class="btn primary">Save settings</button>
+            <span id="settings-saved" class="set-saved"></span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="resize-handle" id="rs-panel" title="Drag to resize panel (double-click to reset)"></div>
+
+  <!-- ============ RIGHT PANEL ============ -->
+  <aside id="panel" class="panel">
+    <div class="panel-tabs">
+      <button class="ptab" data-tab="file"><svg><use href="#i-file"/></svg>File</button>
+      <button class="ptab" data-tab="browser"><svg><use href="#i-globe"/></svg>Browser</button>
+      <button class="ptab" data-tab="activity"><svg><use href="#i-activity"/></svg>Activity <span class="count-badge hidden" id="activity-count"></span></button>
+      <button class="ptab" data-tab="insights"><svg><use href="#i-chart"/></svg>Insights</button>
+      <button class="icon-btn sm panel-close" id="btn-panel-close" title="Close panel (⌘J)"><svg><use href="#i-x"/></svg></button>
+    </div>
+
+    <div class="panel-body" id="panel-file">
+      <div class="panel-toolbar">
+        <span class="panel-path" id="file-path">No file open</span>
+        <span class="dirty-dot" id="dirty-dot" title="Unsaved changes" hidden></span>
+        <div class="panel-tools">
+          <button class="icon-btn sm" id="btn-file-history" title="Version history"><svg><use href="#i-clock"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-view" title="Toggle preview / source"><svg><use href="#i-eye"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-find" title="Find in file (⌘⇧F)"><svg><use href="#i-find"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-goto" title="Go to line"><svg><use href="#i-target"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-wrap" title="Toggle word wrap (F)"><svg><use href="#i-wrap"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-ffs-up" title="Bigger editor font"><span class="txt-ic">A+</span></button>
+          <button class="icon-btn sm" id="btn-file-ffs-down" title="Smaller editor font"><span class="txt-ic">A−</span></button>
+          <button class="icon-btn sm" id="btn-file-discard" title="Discard changes (reload from disk)"><svg><use href="#i-restore"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-lock" title="Toggle read-only"><svg><use href="#i-lock"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-dup" title="Duplicate file (⌘D)"><svg><use href="#i-copy"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-move" title="Move to folder…"><svg><use href="#i-move"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-download" title="Download"><svg><use href="#i-download"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-copy" title="Copy contents"><svg><use href="#i-copy"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-toc" title="Table of contents (markdown)"><svg><use href="#i-list"/></svg></button>
+          <button class="icon-btn sm danger" id="btn-file-delete" title="Delete file"><svg><use href="#i-trash"/></svg></button>
+        </div>
+      </div>
+      <div id="file-find-bar" class="find-bar hidden">
+        <input id="find-input" type="text" placeholder="Find in this file…" spellcheck="false">
+        <label class="find-opt" title="Match case"><input type="checkbox" id="find-case"><span>Aa</span></label>
+        <label class="find-opt" title="Whole word"><input type="checkbox" id="find-word"><span>\b</span></label>
+        <span id="find-count" class="find-count"></span>
+        <button class="icon-btn sm" id="find-prev" title="Previous match">↑</button>
+        <button class="icon-btn sm" id="find-next" title="Next match">↓</button>
+        <button class="icon-btn sm" id="find-close" title="Close (Esc)"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div id="file-content" class="file-content">
+        <div class="panel-empty">
+          <svg><use href="#i-file"/></svg>
+          <p>Select a file from the workspace tree,<br>or let the agent create one.</p>
+          <button class="btn ghost sm" id="btn-new-note-2">New note</button>
+        </div>
+      </div>
+      <div class="panel-toolbar bottom">
+        <button id="btn-file-send" class="chip-btn" title="Add this file as chat context"><svg><use href="#i-chat"/></svg>Add to chat</button>
+        <span class="file-stats" id="file-stats"></span>
+        <span class="file-cursor" id="file-cursor"></span>
+        <button id="btn-file-save" class="btn primary sm" disabled>Save ⌘S</button>
+      </div>
+    </div>
+
+    <div class="panel-body hidden" id="panel-browser">
+      <div class="panel-toolbar">
+        <div class="url-bar">
+          <button class="icon-btn sm" id="btn-b-back" title="Back" disabled><svg><use href="#i-chev-r" style="transform:rotate(180deg)"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-fwd" title="Forward" disabled><svg><use href="#i-chev-r"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-reload" title="Reload"><svg><use href="#i-refresh"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-home" title="Home"><svg><use href="#i-globe"/></svg></button>
+          <svg class="url-ic"><use href="#i-globe"/></svg>
+          <input id="browser-url" type="text" placeholder="https://example.com" spellcheck="false">
+          <button class="icon-btn sm" id="btn-b-history" title="Visit history"><svg><use href="#i-history"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-extern" title="Open in new tab"><svg><use href="#i-external"/></svg></button>
+        </div>
+        <button class="icon-btn sm" id="btn-bookmarks" title="Bookmarks"><svg><use href="#i-star"/></svg></button>
+        <button class="icon-btn sm" id="btn-browser-go" title="Load"><svg><use href="#i-send"/></svg></button>
+      </div>
+      <div id="bookmark-pop" class="popover hidden">
+        <div class="popover-head">Bookmarks <span class="bm-count" id="bm-count"></span></div>
+        <div id="bookmark-list" class="popover-list"></div>
+        <div class="bm-add-row">
+          <input id="bm-add-url" type="text" placeholder="Bookmark current URL" spellcheck="false">
+          <button class="btn primary sm" id="bm-add-btn">Add</button>
+        </div>
+      </div>
+      <div class="browser-frame-wrap">
+        <div id="browser-fallback" class="panel-empty">
+          <svg><use href="#i-globe"/></svg>
+          <p>Paste a URL and press Go.<br>Use “Add to chat” to let the agent read the page.</p>
+        </div>
+        <iframe id="browser-frame" class="browser-frame" title="Page preview" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+      </div>
+      <div class="panel-toolbar bottom">
+        <button id="btn-browser-chat" class="chip-btn" disabled title="Fetch page text and add to chat context"><svg><use href="#i-chat"/></svg>Add page to chat</button>
+        <span id="browser-status" class="browser-status"></span>
+      </div>
+    </div>
+
+    <div class="panel-body hidden" id="panel-activity">
+      <div class="act-filters">
+        <button class="fchip active" data-f="all">All</button>
+        <button class="fchip" data-f="tools">Tools</button>
+        <button class="fchip" data-f="approvals">Approvals</button>
+        <button class="fchip clear" data-f="clear" title="Clear feed">Clear</button>
+      </div>
+      <div id="activity-list" class="activity-list">
+        <div class="panel-empty">
+          <svg><use href="#i-activity"/></svg>
+          <p>Tool calls and approvals<br>appear here live.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-body hidden" id="panel-insights">
+      <div class="ins-head-row">
+        <span class="ins-head-title">Usage insights</span>
+        <span class="ins-streak" id="ins-streak" title="Consecutive days with activity"><svg><use href="#i-flame"/></svg><span id="ins-streak-num">–</span> day streak</span>
+        <button class="btn ghost sm" id="btn-ins-csv" title="Download stats as CSV"><svg><use href="#i-download"/></svg>CSV</button>
+        <button class="btn ghost sm" id="btn-ins-refresh" title="Refresh insights"><svg><use href="#i-refresh"/></svg></button>
+      </div>
+      <div class="ins-grid">
+        <div class="ins-card"><span class="ins-num" id="ins-chats">–</span><span class="ins-lbl">chats</span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-msgs">–</span><span class="ins-lbl">messages <em class="ins-delta" id="ins-msgs-delta"></em></span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-toks">–</span><span class="ins-lbl">tokens <em class="ins-delta" id="ins-toks-delta"></em></span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-words">–</span><span class="ins-lbl">words written</span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-avg-ms">–</span><span class="ins-lbl">avg response</span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-tools-total">–</span><span class="ins-lbl">tool calls</span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-top-day">–</span><span class="ins-lbl">busiest day</span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-busy-hour">–</span><span class="ins-lbl">busiest hour</span></div>
+        <div class="ins-card today-card" id="ins-today-card" title="Today so far"><span class="ins-num" id="ins-today-msgs">–</span><span class="ins-lbl">today · msgs <em id="ins-today-toks">–</em> tok</span></div>
+        <div class="ins-card"><span class="ins-num" id="ins-files">–</span><span class="ins-lbl">files · <em id="ins-size"></em></span></div>
+      </div>
+      <div class="ins-block">
+        <div class="ins-block-head">Messages <span class="ins-range" id="ins-range">14 days</span>
+          <select id="ins-days" class="ins-select">
+            <option value="7">7d</option><option value="14" selected>14d</option><option value="30">30d</option><option value="90">90d</option>
+          </select>
+        </div>
+        <div id="ins-chart-msgs" class="ins-chart"></div>
+      </div>
+      <div class="ins-block">
+        <div class="ins-block-head">Tokens</div>
+        <div id="ins-chart-toks" class="ins-chart"></div>
+      </div>
+      <div class="ins-block">
+        <div class="ins-block-head">Activity heatmap <span class="ins-range">7 × 24</span></div>
+        <div id="ins-heatmap" class="ins-heatmap"></div>
+        <div class="ins-heat-legend"><span>less</span><span class="ins-heat-cells"><i></i><i></i><i></i><i></i><i></i></span><span>more</span></div>
+      </div>
+      <div class="ins-block">
+        <div class="ins-block-head">By provider</div>
+        <div id="ins-providers" class="ins-tools"></div>
+      </div>
+      <div class="ins-block">
+        <div class="ins-block-head">Top tools</div>
+        <div id="ins-tools" class="ins-tools"></div>
+      </div>
+      <div class="ins-block">
+        <div class="ins-block-head">Top models</div>
+        <div id="ins-models" class="ins-tools"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- attach picker -->
+<div id="attach-pop" class="popover hidden">
+  <div class="popover-head">Attach workspace file</div>
+  <input id="attach-filter" class="popover-input" type="text" placeholder="Filter…" spellcheck="false">
+  <div id="attach-list" class="popover-list"></div>
+</div>
+
+<!-- export menu -->
+<div id="export-pop" class="popover hidden">
+  <div class="popover-head">Export current chat</div>
+  <div class="popover-list">
+    <div class="pop-item" id="exp-md"><svg><use href="#i-download"/></svg>Markdown (.md)</div>
+    <div class="pop-item" id="exp-html"><svg><use href="#i-code"/></svg>HTML page (.html)</div>
+  </div>
+</div>
+
+<!-- slash-command menu -->
+<div id="slash-menu" class="popover hidden">
+  <div class="popover-head">Commands <span class="sl-hint">/then space to run</span></div>
+  <div id="slash-list" class="popover-list"></div>
+</div>
+
+<!-- file version history -->
+<div id="history-pop" class="popover history-pop hidden">
+  <div class="popover-head">Version history <span class="bm-count" id="hist-path"></span></div>
+  <div id="history-list" class="popover-list"></div>
+</div>
+
+<!-- keyboard shortcuts overlay -->
+<div id="shortcuts" class="shortcuts hidden">
+  <div class="shortcuts-box">
+    <div class="modal-head">
+      <span>Keyboard shortcuts</span>
+      <button class="icon-btn" id="shortcuts-x" title="Close"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div class="sc-grid">
+      <div class="sc-col"><h4>General</h4>
+        <div class="sc-row"><span>Command palette</span><kbd>⌘K</kbd></div>
+        <div class="sc-row"><span>Global search</span><kbd>⌘F</kbd></div>
+        <div class="sc-row"><span>This help</span><kbd>?</kbd></div>
+        <div class="sc-row"><span>Theme</span><kbd>⌘.</kbd></div>
+        <div class="sc-row"><span>Settings</span><kbd>⌘,</kbd></div>
+      </div>
+      <div class="sc-col"><h4>Layout</h4>
+        <div class="sc-row"><span>Sidebar</span><kbd>⌘B</kbd></div>
+        <div class="sc-row"><span>Right panel</span><kbd>⌘J</kbd></div>
+        <div class="sc-row"><span>Focus mode</span><kbd>⌘\</kbd></div>
+        <div class="sc-row"><span>New chat</span><kbd>⌘N</kbd></div>
+      </div>
+      <div class="sc-col"><h4>Chat &amp; files</h4>
+        <div class="sc-row"><span>Send message</span><kbd>↵</kbd></div>
+        <div class="sc-row"><span>New line</span><kbd>⇧↵</kbd></div>
+        <div class="sc-row"><span>Save file</span><kbd>⌘S</kbd></div>
+        <div class="sc-row"><span>Attach file</span><kbd>@</kbd></div>
+        <div class="sc-row"><span>Slash commands</span><kbd>/</kbd></div>
+        <div class="sc-row"><span>Edit last message</span><kbd>↑</kbd></div>
+      </div>
+      <div class="sc-col"><h4>Focus &amp; speed</h4>
+        <div class="sc-row"><span>Quick open file</span><kbd>⌘P</kbd></div>
+        <div class="sc-row"><span>Focus composer</span><kbd>⌘L</kbd></div>
+        <div class="sc-row"><span>Find in file</span><kbd>⌘⇧F</kbd></div>
+        <div class="sc-row"><span>Export chat</span><kbd>⌘E</kbd></div>
+        <div class="sc-row"><span>Open Insights</span><kbd>⌘I</kbd></div>
+        <div class="sc-row"><span>Duplicate file</span><kbd>⌘D</kbd></div>
+        <div class="sc-row"><span>Clear composer</span><kbd>⌘W</kbd></div>
+        <div class="sc-row"><span>Word wrap</span><kbd>F</kbd></div>
+      </div>
+      <div class="sc-col"><h4>Navigation</h4>
+        <div class="sc-row"><span>Panel tab File</span><kbd>⌘1</kbd></div>
+        <div class="sc-row"><span>Panel tab Browser</span><kbd>⌘2</kbd></div>
+        <div class="sc-row"><span>Panel tab Activity</span><kbd>⌘3</kbd></div>
+        <div class="sc-row"><span>Panel tab Insights</span><kbd>⌘4</kbd></div>
+        <div class="sc-row"><span>Previous chat</span><kbd>[</kbd></div>
+        <div class="sc-row"><span>Next chat</span><kbd>]</kbd></div>
+        <div class="sc-row"><span>New note</span><kbd>T</kbd></div>
+        <div class="sc-row"><span>Jump to message</span><kbd>⌘G</kbd></div>
+      </div>
+      <div class="sc-col"><h4>View</h4>
+        <div class="sc-row"><span>Zoom in</span><kbd>⌘ +</kbd></div>
+        <div class="sc-row"><span>Zoom out</span><kbd>⌘ −</kbd></div>
+        <div class="sc-row"><span>Zoom reset</span><kbd>⌘ 0</kbd></div>
+        <div class="sc-row"><span>Pomodoro timer</span><kbd>P</kbd></div>
+        <div class="sc-row"><span>Mute sounds</span><kbd>M</kbd></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- onboarding tour -->
+<div id="tour" class="tour hidden">
+  <div id="tour-card" class="tour-card">
+    <div class="tour-step"><span id="tour-num">1/5</span></div>
+    <h4 id="tour-title">Welcome to MyWorkspace</h4>
+    <p id="tour-text"></p>
+    <div class="tour-actions">
+      <button class="btn ghost sm" id="tour-skip">Skip tour</button>
+      <button class="btn primary sm" id="tour-next">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- command palette -->
+<div id="palette" class="palette hidden">
+  <div class="palette-box">
+    <div class="palette-head">
+      <svg class="p-ic"><use href="#i-search"/></svg>
+      <input id="palette-input" type="text" placeholder="Type a command or search…" spellcheck="false" autocomplete="off">
+      <kbd>esc</kbd>
+    </div>
+    <div id="palette-list" class="palette-list"></div>
+    <div class="palette-foot">
+      <span><kbd>↑↓</kbd> navigate</span><span><kbd>↵</kbd> select</span><span class="pf-right"><kbd>⌘K</kbd> toggle</span>
+    </div>
+  </div>
+</div>
+
+<!-- modal -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span id="modal-title">…</span>
+      <button class="icon-btn sm" id="modal-x" title="Close"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- global search overlay -->
+<div id="search-overlay" class="palette hidden">
+  <div class="palette-box search-box">
+    <div class="palette-head">
+      <svg class="p-ic"><use href="#i-search"/></svg>
+      <input id="search-input" type="text" placeholder="Search chats and workspace files…" spellcheck="false" autocomplete="off">
+      <kbd>esc</kbd>
+    </div>
+    <div id="search-results" class="palette-list">
+      <div class="search-hint">Type to search everything — your chats and the whole workspace.</div>
+    </div>
+    <div class="palette-foot">
+      <span><kbd>⌘F</kbd> toggle</span><span><kbd>↵</kbd> open first result</span>
+    </div>
+  </div>
+</div>
+
+<!-- drag & drop overlay -->
+<div id="drop-overlay" class="drop-overlay hidden">
+  <div class="drop-box">
+    <svg><use href="#i-download"/></svg>
+    <div>Drop files to add them to your workspace</div>
+  </div>
+</div>
+
+<!-- chat menu -->
+<div id="chat-menu-pop" class="popover hidden">
+  <div class="popover-head">Chat</div>
+  <div class="popover-list">
+    <div class="pop-item" id="cm-print"><svg><use href="#i-print"/></svg>Print chat</div>
+    <div class="pop-item" id="cm-dup"><svg><use href="#i-copy"/></svg>Duplicate chat (fork)</div>
+    <div class="pop-item" id="cm-ctx"><svg><use href="#i-fork"/></svg>New chat with current context</div>
+    <div class="pop-item" id="cm-pin-msg"><svg><use href="#i-pin"/></svg>Pin this message</div>
+    <div class="pop-item" id="cm-search"><svg><use href="#i-search"/></svg>Search in this chat</div>
+    <div class="pop-item danger" id="cm-del"><svg><use href="#i-trash"/></svg>Delete chat…</div>
+  </div>
+</div>
+
+<!-- templates popover -->
+<div id="templates-pop" class="popover lib-pop hidden">
+  <div class="popover-head">Note templates <span class="bm-count" id="tpl-count"></span></div>
+  <input id="tpl-filter" class="popover-input" type="text" placeholder="Filter…" spellcheck="false">
+  <div id="tpl-list" class="popover-list"></div>
+</div>
+
+<!-- prompt library popover -->
+<div id="prompt-pop" class="popover lib-pop hidden">
+  <div class="popover-head">Prompt library <span class="bm-count" id="pl-count"></span></div>
+  <input id="pl-filter" class="popover-input" type="text" placeholder="Search prompts…" spellcheck="false">
+  <div class="pop-subrow">
+    <button class="chip-btn sm" id="pl-starred">★ Starred</button>
+    <button class="chip-btn sm" id="pl-add">+ New prompt</button>
+  </div>
+  <div id="pl-list" class="popover-list"></div>
+</div>
+
+<!-- pomodoro widget -->
+<div id="pomo-widget" class="pomo-widget hidden">
+  <div class="pomo-head">
+    <svg><use href="#i-timer"/></svg>
+    <span id="pomo-mode">Focus</span>
+    <span id="pomo-time" class="pomo-time">25:00</span>
+  </div>
+  <div class="pomo-bar"><div id="pomo-bar-fill"></div></div>
+  <div class="pomo-actions">
+    <button class="btn primary sm" id="pomo-start">Start</button>
+    <button class="btn ghost sm" id="pomo-reset">Reset</button>
+    <button class="btn ghost sm" id="pomo-skip">Skip</button>
+    <button class="icon-btn sm" id="pomo-close" title="Close"><svg><use href="#i-x"/></svg></button>
+  </div>
+</div>
+
+<!-- browser history popover -->
+<div id="b-history-pop" class="popover hidden">
+  <div class="popover-head">Visit history</div>
+  <div id="b-history-list" class="popover-list"></div>
+</div>
+
+<!-- toast history drawer -->
+<div id="toast-history" class="toast-history hidden">
+  <div class="th-head">Recent notifications <button class="icon-btn sm" id="th-clear" title="Clear"><svg><use href="#i-trash"/></svg></button></div>
+  <div id="th-list" class="th-list"></div>
+</div>
+<button id="btn-toast-history" class="th-fab" title="Notification history"><svg><use href="#i-history"/></svg></button>
+
+<!-- confetti canvas -->
+<canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+
+<!-- app footer -->
+<div id="app-footer" class="app-footer">
+  <span id="app-version">MyWorkspace AI v1.0.0</span>
+  <span id="online-dot" class="online-dot" title="Server connection"></span>
+  <button class="btn ghost sm" id="btn-install" hidden>Install app</button>
+  <button class="link-btn" id="btn-dev" title="Developer tools">dev</button>
+</div>
+
+<!-- toasts -->
+<div id="toasts" class="toasts"></div>
+
+<script src="/static/js/md.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/w6.js"></script>
+</body>
+</html>
