@@ -11,7 +11,7 @@ from typing import Any, Dict
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.environ.get("MW_AI_DATA_DIR", os.path.join(_BASE, "data"))
-WORKSPACE_DIR = os.environ.get("MW_AI_WORKSPACE", os.path.join(DATA_DIR, "workspace"))
+WORKSPACE_DIR = os.path.join(DATA_DIR, "workspace")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(WORKSPACE_DIR, exist_ok=True)
@@ -58,7 +58,7 @@ class Settings:
             return self.openrouter_model
         if self.provider == "openai":
             return self.openai_model
-        return "myworkspace-demo"
+        return "cortexspace-demo"
 
 
 class SettingsStore:

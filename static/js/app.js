@@ -1399,7 +1399,7 @@
     if (s.provider === "ollama") return s.ollama_model;
     if (s.provider === "openrouter") return s.openrouter_model;
     if (s.provider === "openai") return s.openai_model;
-    return "myworkspace-demo";
+    return "cortexspace-demo";
   }
 
   function updateModelBadge() {
@@ -2851,7 +2851,7 @@ ${body}
 
   const MODEL_PRICING = {
     "gpt-4o": [2.5, 10], "gpt-4o-mini": [0.15, 0.6], "gpt-4-turbo": [10, 30],
-    "llama3.2": [0, 0], "llama3.1": [0, 0], "myworkspace-demo": [0, 0],
+    "llama3.2": [0, 0], "llama3.1": [0, 0], "cortexspace-demo": [0, 0],
     "claude-3.5-sonnet": [3, 15], "claude-3-haiku": [0.25, 1.25], "mistral": [0.2, 0.6],
   };
   function costEstimate(d) {

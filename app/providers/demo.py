@@ -247,7 +247,7 @@ class DemoProvider(Provider):
     id = "demo"
     display = "Demo (built-in, offline)"
 
-    MODELS = ["myworkspace-demo"]
+    MODELS = ["cortexspace-demo"]
 
     async def list_models(self) -> List[str]:
         return list(self.MODELS)
