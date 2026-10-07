@@ -338,8 +338,8 @@ class DB:
                 "provider": r["provider"],
                 "model": r["model"],
                 "runs": r["runs"],
-                "avg_ttft_ms": round(r["avg_ttft"], 0) if r["avg_ttft"] else None,
-                "avg_tps": round(r["avg_tps"], 1) if r["avg_tps"] else None,
+                "avg_ttft_ms": round(r["avg_ttft"], 0) if r["avg_ttft"] is not None else None,
+                "avg_tps": round(r["avg_tps"], 1) if r["avg_tps"] is not None else None,
             })
         return out
 
