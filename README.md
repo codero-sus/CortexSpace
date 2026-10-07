@@ -326,15 +326,44 @@ can choose, and transparency by default.
   and isn't: the model is the brain you plug in; CortexSpace is the fastest,
   most transparent, fully local harness around it.
 
-| | ChatGPT / Claude / Gemini | Odysseus | **CortexSpace** |
-|---|---|---|---|
-| Where your chats live | their cloud | your machine | your machine |
-| Model freedom | one vendor's stack | any (Ollama/OpenRouter) | any — **pinned per chat** |
-| Speed you can verify | none shown | none shown | **TTFT + tok/s per model, per run** |
-| Agent tool approval | limited | yes | yes, per-action cards + strict mode |
-| Telemetry | yes | self-hosted | **zero, by architecture** |
-| Offline | no | yes (local models) | yes (demo provider included) |
-| Infra cost | per seat + API | Docker + services | **one Python process, no Docker** |
+### The wrappers of the world
+
+Wave 8 surveyed every serious AI wrapper on the planet — SaaS, self-hosted,
+desktop — and built a live scoreboard into the app: the **Arena** panel
+(right panel ⚡ tab, `⌘⇧A`, `/arena`, palette). Sixteen wrappers are scored on
+eight dimensions where a wrapper actually competes, and two of those
+dimensions (page weight, speed) are **measured live on your instance**, not
+quoted.
+
+The eight dimensions: one-process setup · light payload · model freedom ·
+verifiable speed (TTFT + tok/s) · per-action agent approval · data stays
+local · zero telemetry · $0 infra.
+
+| # | Wrapper | Type | Score | The gap |
+|---|---|---|---|---|
+| 1 | **CortexSpace** | this machine | **8.0 / 8** | it's you |
+| 2 | LibreChat | self-host · Docker | 4.0 | needs MongoDB + Meilisearch |
+| 3 | Jan | desktop · Electron | 4.0 | cleanest offline app — ~100 MB+ Electron runtime |
+| 4 | NextChat | lightweight web | 4.0 | a client: no agent, no workspace, browser-local chats |
+| 5 | text-generation-webui | self-host · Gradio | 4.0 | inference lab first, app second |
+| 6 | SillyTavern | self-host · Node | 4.0 | roleplay-first; no file workspace, no agent tools |
+| 7 | Odysseus | self-host · Docker | 4.0 | closest sibling — Docker + SearXNG + ~3 MB vendored JS/page |
+| 8 | Open WebUI | self-host · Docker | 3.5 | container + SvelteKit + Python + ChromaDB; usage stats on by default |
+| 9 | AnythingLLM | self-host · Docker | 3.5 | best RAG — but Electron/Docker + ChromaDB; cloud $50+/mo |
+| 10 | GPT4All | desktop · Qt | 3.5 | local-only; no cloud path, no agent |
+| 11 | Khoj | self-host · Docker | 3.5 | separate 'brain' service; notes aren't editable files |
+| 12 | Poe | SaaS · aggregator | 2.5 | many models — all cloud, all metered |
+| 13 | LobeChat / LobeHub | self-host · Next.js | 2.0 | great ecosystem; cloud tiers $9.90–39.90/mo |
+| 14 | Perplexity | SaaS · search | 2.0 | cited search — cloud, logged, metered |
+| 15 | Claude | SaaS | 1.5 | superb model, walled cloud garden |
+| 16 | ChatGPT | SaaS | 1.0 | one vendor's stack; your chats on their servers |
+| 17 | Gemini | SaaS | 1.0 | tied to Google's stack and telemetry |
+
+Method: public 2026 product architectures, self-assessed 0 / ½ / 1 per
+dimension — the same table the Arena renders, with live-measured weight and
+speed. Ground CortexSpace chooses not to fight (stated in the panel too):
+multi-user auth/RBAC, vector-DB RAG, image generation, MCP marketplaces —
+team/enterprise battlegrounds, not a personal workspace's.
 
 ## Keyboard
 

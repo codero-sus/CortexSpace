@@ -12,6 +12,7 @@
 <link rel="manifest" href="/static/manifest.json">
 <link rel="stylesheet" href="/static/styles.css">
 <link rel="stylesheet" href="/static/styles-w6.css">
+<link rel="stylesheet" href="/static/styles-w8.css">
 </head>
 <body>
 <a class="skip-link" href="#composer">Skip to chat</a>
@@ -531,6 +532,7 @@
       <button class="ptab" data-tab="browser"><svg><use href="#i-globe"/></svg>Browser</button>
       <button class="ptab" data-tab="activity"><svg><use href="#i-activity"/></svg>Activity <span class="count-badge hidden" id="activity-count"></span></button>
       <button class="ptab" data-tab="insights"><svg><use href="#i-chart"/></svg>Insights</button>
+      <button class="ptab" data-tab="arena" title="Wrappers of the world — ⌘⇧A"><svg><use href="#i-spark"/></svg>Arena</button>
       <button class="icon-btn sm panel-close" id="btn-panel-close" title="Close panel (⌘J)"><svg><use href="#i-x"/></svg></button>
     </div>
 
@@ -680,6 +682,8 @@
         <div id="ins-models" class="ins-tools"></div>
       </div>
     </div>
+
+    <div class="panel-body hidden" id="panel-arena"></div>
   </aside>
 </div>
 
@@ -912,5 +916,6 @@
 <script src="/static/js/md.js"></script>
 <script src="/static/js/app.js"></script>
 <script src="/static/js/w6.js"></script>
+<script src="/static/js/w8.js"></script>
 </body>
 </html>
