@@ -1551,3 +1551,32 @@ body.party-mode #app { outline: 3px solid; outline-offset: -3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* ---- wave 7: model pin menu + measured-speed bench ---- */
+#model-badge { cursor: pointer; }
+#model-badge:hover { filter: brightness(1.25); }
+.pin-menu {
+  min-width: 230px; max-width: 320px;
+  background: var(--panel, #17171f); border: 1px solid var(--border, #2a2a38);
+  border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+  overflow: hidden; font-size: 12.5px;
+}
+.pin-title {
+  padding: 8px 12px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  opacity: .55; border-bottom: 1px solid var(--border, #2a2a38);
+}
+.pin-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  width: 100%; padding: 8px 12px; background: none; border: 0; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.pin-item:hover { background: var(--hover, rgba(255, 255, 255, .05)); }
+.pin-item.on { color: var(--accent, #7aa2ff); }
+.pin-sub { opacity: .45; font-size: 11px; }
+.w6-bench-t { width: 100%; border-collapse: collapse; font-size: 12px; }
+.w6-bench-t th {
+  text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  opacity: .5; padding: 2px 6px 4px;
+}
+.w6-bench-t td { padding: 3px 6px; border-top: 1px solid var(--border, #2a2a38); }
+.w6-bench-t td:first-child { font-family: ui-monospace, monospace; font-size: 11px; }

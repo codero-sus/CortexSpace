@@ -263,6 +263,7 @@
     if (state.streaming) return;
     const d = await api("/api/chats/" + id);
     state.chat = d.chat;
+    updateModelBadge();
     state.messages = d.messages.map(historyMsg);
     state.activity = [];
     for (const m of state.messages) for (const t of m.tools) state.activity.push({ ...t, when: m.created_at });
@@ -554,6 +555,7 @@
     const inT = u.prompt_tokens || 0, outT = u.completion_tokens || 0;
     const secs = meta.duration_ms ? meta.duration_ms / 1000 : 0;
     const bits = [];
+    if (meta.ttft_ms != null) bits.push("⚡ " + (meta.ttft_ms / 1000).toFixed(1) + "s first token");
     if (m.tools && m.tools.length) bits.push(m.tools.length + " tool" + (m.tools.length > 1 ? "s" : ""));
     if (inT) bits.push(inT + " in");
     if (outT) bits.push(outT + " out");
@@ -888,7 +890,10 @@
 
     state.controller = new AbortController();
     try {
-      await ssePost(`/api/chats/${state.chat.id}/messages`, { content: text, context: myContext }, (ev, data) => {
+      const _pin = pinnedModel(state.chat.id);
+      const _body = { content: text, context: myContext };
+      if (_pin) _body.model = _pin;
+      await ssePost(`/api/chats/${state.chat.id}/messages`, _body, (ev, data) => {
         switch (ev) {
           case "token":
             state.streamText += data.text;
@@ -936,7 +941,7 @@
       const tools = [...liveTools.values()].map((e) => ({ ...e.tool }));
       streamNode.remove();
       streamNode = null;
-      const meta = streamDone ? { model: streamDone.model, usage: streamDone.usage, duration_ms: streamDone.duration_ms } : {};
+      const meta = streamDone ? { model: streamDone.model, usage: streamDone.usage, duration_ms: streamDone.duration_ms, ttft_ms: streamDone.ttft_ms } : {};
       state.messages.push({ role: "assistant", content: finalText, tools, meta, created_at: Date.now() });
       renderMessages();
     }
@@ -1402,10 +1407,56 @@
     return "cortexspace-demo";
   }
 
+  /* ---- per-chat model pinning (wrapper's model freedom) ---- */
+  function chatPins() { try { return JSON.parse(localStorage.getItem("cs-chat-model") || "{}"); } catch { return {}; } }
+  function pinnedModel(cid) { return (cid && chatPins()[cid]) || ""; }
+  function setPinnedModel(cid, model) {
+    const p = chatPins();
+    if (model) p[cid] = model; else delete p[cid];
+    localStorage.setItem("cs-chat-model", JSON.stringify(p));
+    updateModelBadge();
+    toast(model ? "Pinned " + model + " to this chat" : "Model pin cleared");
+  }
+  let pinMenu = null;
+  function closePinMenu() { if (pinMenu) { pinMenu.remove(); pinMenu = null; } }
+  async function togglePinMenu(ev) {
+    ev && ev.stopPropagation();
+    if (pinMenu) return closePinMenu();
+    const cid = state.chat && state.chat.id;
+    if (!cid) return toast("Start a chat first", "warn");
+    const cur = pinnedModel(cid);
+    let models = [];
+    try { models = (await api("/api/models")).models || []; } catch {}
+    const item = (label, active, fn, sub) => el("button", {
+      class: "pin-item" + (active ? " on" : ""),
+      onclick: () => { fn(); closePinMenu(); },
+    }, el("span", null, label), sub ? el("span", { class: "pin-sub" }, sub) : null);
+    pinMenu = el("div", { class: "pin-menu", style: "position:fixed;z-index:999" },
+      el("div", { class: "pin-title" }, "Model for this chat"),
+      item("Settings default", !cur, () => setPinnedModel(cid, ""), "whatever Settings says"),
+    );
+    for (const m of models) pinMenu.append(item(m, m === cur, () => setPinnedModel(cid, m)));
+    if (!models.length) pinMenu.append(el("div", { class: "pin-sub", style: "padding:4px 12px 8px" }, "no models available"));
+    if (cur) pinMenu.append(item("Clear pin", false, () => setPinnedModel(cid, ""), "back to default"));
+    document.body.append(pinMenu);
+    const r = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { bottom: 60, right: innerWidth - 250 };
+    pinMenu.style.top = (r.bottom + 6) + "px";
+    pinMenu.style.left = Math.max(8, r.right - 250) + "px";
+    setTimeout(() => document.addEventListener("click", closePinMenu, { once: true }), 0);
+  }
+
   function updateModelBadge() {
     const s = state.settings;
     if (!s) return;
-    $("#model-badge-text").textContent = s.provider === "demo" ? "demo (offline)" : `${s.provider} · ${currentModel(s)}`;
+    const pinned = pinnedModel(state.chat && state.chat.id);
+    const badge = $("#model-badge");
+    if (pinned) {
+      $("#model-badge-text").textContent = "📌 " + pinned;
+      if (badge) badge.title = "Pinned model for this chat — click to change";
+    } else {
+      $("#model-badge-text").textContent = s.provider === "demo" ? "demo (offline)" : `${s.provider} · ${currentModel(s)}`;
+      if (badge) badge.title = "Active model — click to pin one to this chat";
+    }
   }
 
   /* ---------------- palette ---------------- */
@@ -2955,6 +3006,7 @@ ${body}
         row("Python", d.python),
         row("Frontend", "vanilla JS · no framework · no build step"),
       ),
+      el("p", { class: "about-sub", style: "margin-top:10px" }, "Wrappers, not models — that's the whole point. CortexSpace wins where wrappers actually compete: speed you can measure, models you can choose (Ollama local, OpenRouter cloud, any OpenAI-compatible), an agent you can approve action-by-action, and zero telemetry. The intelligence is the model you point it at; everything around it is built to get out of the way."),
       el("p", { class: "about-note" }, "Everything lives on this machine. Outbound calls only go where you point them."),
     );
     showModal("About", body);
@@ -4046,6 +4098,7 @@ ${body}
       toast(DND ? "Do not disturb: on" : "Do not disturb: off");
     };
     $("#btn-about").onclick = aboutModal;
+  $("#model-badge").onclick = togglePinMenu;
     $("#btn-pomodoro").onclick = togglePomodoro;
     $("#btn-chat-menu").onclick = (e) => { e.stopPropagation(); toggleChatMenu(); };
 

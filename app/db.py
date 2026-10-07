@@ -72,6 +72,15 @@ class DB:
                 duration_ms INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS bench (
+                id TEXT PRIMARY KEY,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                ttft_ms INTEGER,
+                duration_ms INTEGER NOT NULL DEFAULT 0,
+                completion_tokens INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL
+            );
             """
         )
         # light migration: add columns to pre-existing databases
@@ -281,6 +290,58 @@ class DB:
         cur = c.execute("DELETE FROM messages WHERE id=? AND chat_id=?", (mid, cid))
         c.commit()
         return cur.rowcount > 0
+
+    def update_message(self, cid: str, mid: str, content: str) -> bool:
+        """Edit the text of a user message in place (Edit & resend flow)."""
+        c = self._conn()
+        cur = c.execute(
+            "UPDATE messages SET content=? WHERE id=? AND chat_id=? AND role='user'",
+            (content, mid, cid),
+        )
+        if cur.rowcount:
+            self.touch_chat(cid)
+            c.commit()
+        return cur.rowcount > 0
+
+    def record_bench(self, provider: str, model: str, ttft_ms: int | None,
+                     duration_ms: int, completion_tokens: int) -> None:
+        """Keep a rolling speed ledger (last 400 runs) for the Measured speed card."""
+        c = self._conn()
+        c.execute(
+            "INSERT INTO bench(id, provider, model, ttft_ms, duration_ms, completion_tokens, created_at)"
+            " VALUES(?,?,?,?,?,?,?)",
+            (f"b_{uuid.uuid4().hex[:12]}", provider, model, ttft_ms,
+             int(duration_ms or 0), int(completion_tokens or 0), now_ms()),
+        )
+        c.execute(
+            "DELETE FROM bench WHERE id NOT IN (SELECT id FROM bench ORDER BY created_at DESC LIMIT 400)"
+        )
+        c.commit()
+
+    def bench_summary(self) -> list:
+        """Per provider/model: runs, avg TTFT, avg tokens/s."""
+        c = self._conn()
+        rows = c.execute(
+            """
+            SELECT provider, model,
+                   COUNT(*) AS runs,
+                   AVG(ttft_ms) AS avg_ttft,
+                   AVG(CASE WHEN duration_ms > 0 AND completion_tokens > 0
+                            THEN completion_tokens * 1000.0 / duration_ms END) AS avg_tps
+            FROM bench GROUP BY provider, model
+            ORDER BY avg_tps DESC
+            """
+        ).fetchall()
+        out = []
+        for r in rows:
+            out.append({
+                "provider": r["provider"],
+                "model": r["model"],
+                "runs": r["runs"],
+                "avg_ttft_ms": round(r["avg_ttft"], 0) if r["avg_ttft"] else None,
+                "avg_tps": round(r["avg_tps"], 1) if r["avg_tps"] else None,
+            })
+        return out
 
     def export_backup(self) -> dict:
         c = self._conn()

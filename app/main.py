@@ -140,6 +140,11 @@ class FileRestoreIn(BaseModel):
 class MessageIn(BaseModel):
     content: str
     context: Optional[list[str]] = None
+    model: Optional[str] = None  # per-turn model override (pinned chat model)
+
+
+class MessageEditIn(BaseModel):
+    content: str
 
 
 class ApprovalIn(BaseModel):
@@ -391,7 +396,7 @@ async def chat_send(cid: str, body: MessageIn):
     async def gen():
         _stream_bump(+1)
         try:
-            async for ev in agent.run_agent(cid, db, content, body.context):
+            async for ev in agent.run_agent(cid, db, content, body.context, model_override=body.model):
                 if ev["type"] == "done":
                     u = ev.get("usage") or {}
                     try:
@@ -402,6 +407,13 @@ async def chat_send(cid: str, body: MessageIn):
                             int(u.get("prompt_tokens", 0) or 0),
                             int(u.get("completion_tokens", 0) or 0),
                             int(ev.get("duration_ms", 0) or 0),
+                        )
+                        db.record_bench(
+                            ev.get("provider", "") or "",
+                            ev.get("model", "") or "",
+                            ev.get("ttft_ms"),
+                            int(ev.get("duration_ms", 0) or 0),
+                            int(u.get("completion_tokens", 0) or 0),
                         )
                     except Exception:  # noqa: BLE001
                         pass
@@ -465,6 +477,23 @@ async def chat_export(cid: str):
         "\n".join(lines),
         headers={"Content-Disposition": f'attachment; filename="{name}.md"'},
     )
+
+
+@app.put("/api/chats/{cid}/messages/{mid}")
+async def chat_edit_message(cid: str, mid: str, body: MessageEditIn):
+    if not db.get_chat(cid):
+        raise HTTPException(404, "chat not found")
+    content = body.content.strip()
+    if not content:
+        raise HTTPException(400, "empty message")
+    if not db.update_message(cid, mid, content):
+        raise HTTPException(404, "user message not found")
+    return {"ok": True}
+
+
+@app.get("/api/bench")
+async def bench():
+    return {"bench": db.bench_summary()}
 
 
 @app.delete("/api/chats/{cid}/messages/{mid}")

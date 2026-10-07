@@ -1579,6 +1579,7 @@
       card("w6i-len", "Message length mix", el("div", { class: "w6-bars" })),
       card("w6i-resp", "Response times", el("div", { class: "w6-bars" })),
       card("w6i-days", "Active days", el("div", { class: "w6-days" })),
+      card("w6i-speed", "Measured speed", el("div", { class: "w6-bench" }, el("div", { class: "w6-sub" }, "measured on YOUR machine — not a marketing number"))),
     );
     host.append(sec);
     setInterval(refreshInsightsW6, 15000);
@@ -1596,6 +1597,28 @@
     set("w6i-week", fmtN(s.week_messages) + " msgs · " + fmtN(s.week_tokens) + " tok");
     bars("w6i-len", s.len_hist || {});
     bars("w6i-resp", s.resp_hist || {});
+    const bench = $("#w6i-speed .w6-bench");
+    if (bench) {
+      try {
+        const d = await api("/api/bench");
+        const rows = d.bench || [];
+        bench.innerHTML = "";
+        if (!rows.length) {
+          bench.append(el("div", { class: "w6-sub" }, "No runs recorded yet — send a few messages and this fills in with your real latency + throughput."));
+        } else {
+          const tbl = el("table", { class: "w6-bench-t" });
+          tbl.append(el("tr", null, el("th", null, "model"), el("th", null, "runs"), el("th", null, "TTFT"), el("th", null, "tok/s")));
+          for (const b of rows.slice(0, 6)) {
+            tbl.append(el("tr", null,
+              el("td", null, (b.provider + ":" + b.model)),
+              el("td", null, String(b.runs)),
+              el("td", null, b.avg_ttft_ms != null ? (b.avg_ttft_ms / 1000).toFixed(1) + "s" : "—"),
+              el("td", null, b.avg_tps != null ? b.avg_tps + "" : "—")));
+          }
+          bench.append(tbl);
+        }
+      } catch { /* keep placeholder */ }
+    }
     const days = $("#w6i-days .w6-days");
     if (days) {
       days.innerHTML = "";

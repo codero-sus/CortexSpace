@@ -68,11 +68,14 @@ def _strip_tool_calls_for_prompt(messages: list) -> list:
     return messages
 
 
-async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list[str] | None = None) -> AsyncIterator[Dict]:
+async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list[str] | None = None,
+                 model_override: str | None = None) -> AsyncIterator[Dict]:
     t0 = time.monotonic()
     settings_holder = get_settings_holder()
     s = settings_holder.get()
     provider: Provider = get_provider(s)
+    model = (model_override or "").strip() or s.provider_model()
+    ttft_ms: int | None = None  # time to first token
 
     # --- assemble prompt -------------------------------------------------
     messages: list[dict] = [{"role": "system", "content": s.system_prompt}]
@@ -142,7 +145,7 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
             req = ChatRequest(
                 messages=messages,
                 tools=tool_schemas,
-                model=s.provider_model(),
+                model=model,
                 temperature=s.temperature,
                 max_tokens=s.max_tokens,
             )
@@ -155,6 +158,8 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
                 if etype == "delta":
                     if not assistant_started:
                         assistant_started = True
+                        if ttft_ms is None:
+                            ttft_ms = int((time.monotonic() - t0) * 1000)
                         yield {"type": "assistant_start"}
                     yield {"type": "token", "text": ev["text"]}
                     turn_text.append(ev["text"])
@@ -283,31 +288,33 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
         if not content and not pending_tool_calls:
             content = "…"
         meta = {
-            "model": s.provider_model(),
+            "model": model,
             "provider": s.provider,
             "usage": usage_total,
             "duration_ms": int((time.monotonic() - t0) * 1000),
+            "ttft_ms": ttft_ms,
             "tool_calls": pending_tool_calls,
             "tool_results": pending_tool_results,
         }
         # NOTE: stream tokens were already forwarded live; the stored content
         # is the final assistant text accumulated across turns.
         db.add_message(chat_id, "assistant", _final_text(messages), meta)
-        db.touch_chat(chat_id, provider=s.provider, model=s.provider_model())
+        db.touch_chat(chat_id, provider=s.provider, model=model)
 
         yield {
             "type": "done",
             "usage": usage_total,
             "iterations": iterations,
             "duration_ms": int((time.monotonic() - t0) * 1000),
-            "model": s.provider_model(),
+            "ttft_ms": ttft_ms,
+            "model": model,
             "provider": s.provider,
         }
     except asyncio.CancelledError:
         # client stopped the stream — still save what we have
         try:
             db.add_message(chat_id, "assistant", _final_text(messages) or "_(stopped)_",
-                           {"model": s.provider_model(), "provider": s.provider,
+                           {"model": model, "provider": s.provider,
                             "usage": usage_total, "tool_calls": pending_tool_calls,
                             "tool_results": pending_tool_results, "stopped": True})
         except Exception:  # noqa: BLE001

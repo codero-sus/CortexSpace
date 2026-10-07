@@ -304,6 +304,38 @@ entry, a text operation, a chip, a card. Tallies per category:
 - State: copy / export / import the full local UI state as JSON;
   `cortexspace.uptime()`, `cortexspace.workspace()`, `cortexspace.state()`, … in the console
 
+## Wave 7 — built to beat the wrappers
+
+ChatGPT, Claude, Gemini and Odysseus are all **wrappers, not AI models** — the
+intelligence is rented from an LLM, and the wrapper is where users actually
+live. So this wave optimizes the wrapper: speed you can measure, models you
+can choose, and transparency by default.
+
+- **Per-chat model pinning** — click the model badge to pin any model from the
+  active provider to a single chat (other chats keep following Settings).
+  One workspace, many models: local Llama for drafting, frontier API for the
+  hard stuff.
+- **Measured speed, not marketing speed** — every run records TTFT (time to
+  first token) and tokens/s per provider+model into a rolling 400-run ledger
+  (`/api/bench`); the Insights panel shows your real numbers and every
+  assistant message carries its own ⚡ first-token stat.
+- **Full turn control** — regenerate, edit-&-resend (replaces the history
+  from that point), fork-from-message, stop-mid-stream: all present, all
+  offline.
+- **Positioning, stated plainly** — the About dialog says what the product is
+  and isn't: the model is the brain you plug in; CortexSpace is the fastest,
+  most transparent, fully local harness around it.
+
+| | ChatGPT / Claude / Gemini | Odysseus | **CortexSpace** |
+|---|---|---|---|
+| Where your chats live | their cloud | your machine | your machine |
+| Model freedom | one vendor's stack | any (Ollama/OpenRouter) | any — **pinned per chat** |
+| Speed you can verify | none shown | none shown | **TTFT + tok/s per model, per run** |
+| Agent tool approval | limited | yes | yes, per-action cards + strict mode |
+| Telemetry | yes | self-hosted | **zero, by architecture** |
+| Offline | no | yes (local models) | yes (demo provider included) |
+| Infra cost | per seat + API | Docker + services | **one Python process, no Docker** |
+
 ## Keyboard
 
 `⌘K` palette · `⌘F` search · `⌘N` new chat · `⌘B` sidebar · `⌘J` panel ·
