@@ -41,7 +41,7 @@ class OpenAICompatProvider(Provider):
             h["Authorization"] = f"Bearer {self.api_key}"
         if self.site_url:
             h["HTTP-Referer"] = self.site_url
-        h["X-Title"] = "MyWorkspace AI"
+        h["X-Title"] = "CortexSpace"
         return h
 
     @staticmethod

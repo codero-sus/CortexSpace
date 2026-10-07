@@ -1,4 +1,4 @@
-# Welcome to MyWorkspace AI 🚀
+# Welcome to CortexSpace 🚀
 
 A self-hosted AI workspace — chat, files, search, code execution, web tools, all in one fast web app.
 

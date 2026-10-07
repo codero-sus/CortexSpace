@@ -293,7 +293,7 @@ class DB:
             chats.append(chat)
         settings = {r["key"]: r["value"] for r in c.execute("SELECT key,value FROM settings").fetchall()}
         return {
-            "app": "myworkspace-ai",
+            "app": "cortexspace",
             "version": 1,
             "exported_at": now_ms(),
             "chats": chats,

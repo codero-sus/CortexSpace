@@ -1,4 +1,4 @@
-# MyWorkspace AI — Roadmap
+# CortexSpace — Roadmap
 
 A self-hosted AI workspace that beats the incumbents on **speed** and **friction**,
 while matching their feature set.

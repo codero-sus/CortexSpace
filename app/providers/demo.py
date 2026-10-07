@@ -18,7 +18,7 @@ from .. import worksp
 from .base import ChatRequest, Provider
 
 GREETING = (
-    "Hey — I'm **MyWorkspace AI**, your self-hosted workspace agent. I'm running on the "
+    "Hey — I'm **CortexSpace**, your self-hosted workspace agent. I'm running on the "
     "built-in **demo model** right now, so you can try everything instantly with zero config.\n\n"
     "Here's what I can do:\n\n"
     "- 📁 **Browse your workspace** — *try: `list my files`*\n"
@@ -309,7 +309,7 @@ class DemoProvider(Provider):
         title = topic.strip().capitalize()
         return (
             f"# {title}\n\n"
-            f"> Drafted by MyWorkspace AI (demo model) — replace with your own details.\n\n"
+            f"> Drafted by CortexSpace (demo model) — replace with your own details.\n\n"
             f"## What I know so far\n\n"
             f"- *(nothing yet — add bullet points as they come up)*\n\n"
             f"## Questions to answer\n\n"

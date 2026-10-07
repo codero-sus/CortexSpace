@@ -1,6 +1,6 @@
 {
-  "name": "MyWorkspace AI",
-  "short_name": "MyWorkspace",
+  "name": "CortexSpace",
+  "short_name": "CortexSpace",
   "description": "A fast, self-hosted AI workspace with chat, files, an agent, and web tools.",
   "start_url": "/",
   "scope": "/",

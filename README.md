@@ -1,4 +1,4 @@
-# MyWorkspace AI
+# CortexSpace
 
 **A self-hosted AI workspace that starts in one command and does the same job as
 [Odysseus](https://github.com/odysseus-dev/odysseus) — with none of the ceremony.**
@@ -23,7 +23,7 @@ requirements: fastapi, uvicorn, httpx   (installed into .venv automatically)
 
 ## How it compares to Odysseus
 
-| | Odysseus | MyWorkspace AI |
+| | Odysseus | CortexSpace |
 |---|---|---|
 | **Start time** | Docker compose, several services | `./run.sh` → <1s cold start, one process |
 | **Build tooling** | Node toolchain + static bundles (~3MB JS vendored) | Zero build step, ~100KB of hand-rolled JS/CSS |

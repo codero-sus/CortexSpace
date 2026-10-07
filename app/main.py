@@ -1,4 +1,4 @@
-"""MyWorkspace AI — FastAPI application.
+"""CortexSpace — FastAPI application.
 
 One uvicorn process serves the JSON API and the static UI.
 """
@@ -58,7 +58,7 @@ db = DB(data_path())
 init_settings_store(db)
 _seed_workspace()
 
-app = FastAPI(title="MyWorkspace AI", version=VERSION)
+app = FastAPI(title="CortexSpace", version=VERSION)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -275,7 +275,7 @@ async def chats_export_all():
             cid = ch["id"]
             messages = db.list_messages(cid)
             when = time.strftime("%Y-%m-%d %H:%M", time.localtime(ch["updated_at"] / 1000))
-            lines = [f"# {ch['title']}", "", f"> Exported from MyWorkspace AI · {when}", ""]
+            lines = [f"# {ch['title']}", "", f"> Exported from CortexSpace · {when}", ""]
             for m in messages:
                 if m["role"] == "user":
                     lines += ["## You", "", m["content"], ""]
@@ -285,7 +285,7 @@ async def chats_export_all():
                         fn = c.get("function", {})
                         lines.append(f"> 🔧 `{fn.get('name')}` — {json.dumps(fn.get('arguments', {}), ensure_ascii=False)[:160]}")
                     if m["content"]:
-                        lines += ["## MyWorkspace AI", "", m["content"], ""]
+                        lines += ["## CortexSpace", "", m["content"], ""]
             base = re.sub(r"[^A-Za-z0-9_\-]+", "-", ch["title"]).strip("-")[:60] or cid
             n = used.get(base, 0)
             used[base] = n + 1
@@ -293,7 +293,7 @@ async def chats_export_all():
             zf.writestr(f"{safe}.md", "\n".join(lines))
     data = buf.getvalue()
     return Response(content=data, media_type="application/zip",
-                    headers={"Content-Disposition": 'attachment; filename="myworkspace-chats.zip"'})
+                    headers={"Content-Disposition": 'attachment; filename="cortexspace-chats.zip"'})
 
 
 @app.get("/api/chats/archived")
@@ -443,7 +443,7 @@ async def chat_export(cid: str):
     lines = [
         f"# {chat['title']}",
         "",
-        f"> Exported from MyWorkspace AI · {when} · {chat.get('provider') or '—'} · {chat.get('model') or '—'}",
+        f"> Exported from CortexSpace · {when} · {chat.get('provider') or '—'} · {chat.get('model') or '—'}",
         "",
     ]
     for m in messages:
@@ -453,7 +453,7 @@ async def chat_export(cid: str):
                 lines.append(f"*Attached: {', '.join(ctx)}*")
             lines += ["## You", "", m["content"], ""]
         elif m["role"] == "assistant":
-            lines += ["## MyWorkspace AI", ""]
+            lines += ["## CortexSpace", ""]
             meta = m.get("meta") or {}
             for c in meta.get("tool_calls", []):
                 fn = c.get("function", {})
@@ -486,7 +486,7 @@ async def backup_export():
     return Response(
         content=json.dumps(data, ensure_ascii=False, indent=1),
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="myworkspace-backup-{int(time.time())}.json"'},
+        headers={"Content-Disposition": f'attachment; filename="cortexspace-backup-{int(time.time())}.json"'},
     )
 
 
@@ -523,7 +523,7 @@ async def about():
     ws_size = dir_size(WORKSPACE_DIR)
     s = get_settings_holder().get()
     return {
-        "name": "MyWorkspace AI",
+        "name": "CortexSpace",
         "version": "1.0.0",
         "provider": s.provider,
         "model": s.provider_model(),
@@ -659,7 +659,7 @@ async def chat_export_json(cid: str):
     if not db.get_chat(cid):
         raise HTTPException(404, "chat not found")
     chat = db.get_chat(cid)
-    data = {"app": "myworkspace-ai", "format": "chat-json", "version": 1,
+    data = {"app": "cortexspace", "format": "chat-json", "version": 1,
             "chat": chat, "messages": db.list_messages(cid)}
     safe = re.sub(r"[^A-Za-z0-9_\-]+", "-", chat["title"]).strip("-")[:60] or cid
     return Response(
@@ -825,7 +825,7 @@ async def workspace_zip():
     return Response(
         content=data,
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="myworkspace-files.zip"'},
+        headers={"Content-Disposition": 'attachment; filename="cortexspace-files.zip"'},
     )
 
 

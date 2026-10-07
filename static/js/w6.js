@@ -1,5 +1,5 @@
 /* ============================================================
-   w6.js — MyWorkspace AI · wave 6 module (part 1/7: core)
+   w6.js — CortexSpace · wave 6 module (part 1/7: core)
    Self-contained: no access to app.js internals, DOM-level only.
    ============================================================ */
 (function () {
@@ -446,12 +446,12 @@
 
   /* ---------------- agent controls (15) ---------------- */
   const SP_PRESETS = {
-    "Concise": "You are MyWorkspace AI. Answer in as few words as possible. No filler, no preamble, no closing remarks. Use Markdown only when it helps.",
-    "Verbose": "You are MyWorkspace AI. Be thorough and explanatory. Show your reasoning step by step. Cover edge cases. It is fine to be long.",
-    "Coder": "You are MyWorkspace AI, a senior software engineer. Prioritize correctness, tests, and idiomatic code. Use your file tools proactively to read and write code in the workspace.",
-    "Teacher": "You are MyWorkspace AI, a patient tutor. Explain concepts from first principles, give small examples, and ask a checking question at the end of long explanations.",
-    "Friendly": "You are MyWorkspace AI, a warm and encouraging assistant. Keep it light and human, but stay accurate. Celebrate small wins.",
-    "Strict": "You are MyWorkspace AI. You never speculate: state confidence, cite the source of every factual claim, and refuse gracefully when you do not know.",
+    "Concise": "You are CortexSpace. Answer in as few words as possible. No filler, no preamble, no closing remarks. Use Markdown only when it helps.",
+    "Verbose": "You are CortexSpace. Be thorough and explanatory. Show your reasoning step by step. Cover edge cases. It is fine to be long.",
+    "Coder": "You are CortexSpace, a senior software engineer. Prioritize correctness, tests, and idiomatic code. Use your file tools proactively to read and write code in the workspace.",
+    "Teacher": "You are CortexSpace, a patient tutor. Explain concepts from first principles, give small examples, and ask a checking question at the end of long explanations.",
+    "Friendly": "You are CortexSpace, a warm and encouraging assistant. Keep it light and human, but stay accurate. Celebrate small wins.",
+    "Strict": "You are CortexSpace. You never speculate: state confidence, cite the source of every factual claim, and refuse gracefully when you do not know.",
   };
   function buildAgentSection(host, afterEl) {
     const sec = settingsSection("w6-sec-agent", "Agent controls · wave 6",
@@ -1053,7 +1053,7 @@
     { c: "/recents", d: "Show search recents", f: () => openSearchWith("") },
     { c: "/about", d: "About this app", f: () => { const b = $("#btn-about"); if (b) b.click(); } },
     { c: "/requests", d: "Open dev request log", f: openDevLog },
-    { c: "/backup", d: "Download full backup", f: async () => { const r = await fetch("/api/backup"); dl("myworkspace-backup.zip", await r.blob()); toast("Backup downloaded"); count("backup"); } },
+    { c: "/backup", d: "Download full backup", f: async () => { const r = await fetch("/api/backup"); dl("cortexspace-backup.zip", await r.blob()); toast("Backup downloaded"); count("backup"); } },
     { c: "/vacuum", d: "Vacuum the database", f: async () => { await api("/api/db/vacuum", { method: "POST" }).then(() => toast("Vacuumed")).catch(() => toast("Vacuum failed", "err")); } },
     { c: "/sound", d: "Toggle sound", f: () => { setPref("sound_on", !prefs.sound_on); toast(prefs.sound_on ? "Sound on" : "Sound off"); } },
     { c: "/noise", d: "Toggle white noise", f: () => { const k = ambient("noise"); toast("Ambient: " + k); } },
@@ -1175,7 +1175,7 @@
       { ic: "✓", label: "Mark all read", f: markAllRead },
       { ic: "●", label: "Next unread", f: () => nextUnread(1) },
       { ic: "📌", label: "Pin this chat", f: togglePin });
-    E.push({ grp: "Data", ic: "📦", label: "Download backup", f: async () => { const r = await fetch("/api/backup"); dl("myworkspace-backup.zip", await r.blob()); toast("Backup downloaded"); } },
+    E.push({ grp: "Data", ic: "📦", label: "Download backup", f: async () => { const r = await fetch("/api/backup"); dl("cortexspace-backup.zip", await r.blob()); toast("Backup downloaded"); } },
       { ic: "🗜", label: "Download workspace zip", f: async () => { const r = await fetch("/api/workspace/zip"); dl("workspace.zip", await r.blob()); toast("Workspace zipped"); } },
       { ic: "🧹", label: "Cleanup empty folders", f: async () => { const d = await api("/api/workspace/cleanup", { method: "POST" }); toast((d.removed || []).length ? "Removed: " + d.removed.join(", ") : "No empty folders"); } },
       { ic: "🧯", label: "Vacuum database", f: async () => { await api("/api/db/vacuum", { method: "POST" }).then(() => toast("Vacuumed")); } },
@@ -2104,8 +2104,8 @@
     count("state");
   }
   function exportStateFile() {
-    const state = { app: "MyWorkspace AI", version: "6.0", time: new Date().toISOString(), prefs, counters, tags, tints, ach: LS.get("ach", []) };
-    dl("myworkspace-state.json", new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }));
+    const state = { app: "CortexSpace", version: "6.0", time: new Date().toISOString(), prefs, counters, tags, tints, ach: LS.get("ach", []) };
+    dl("cortexspace-state.json", new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }));
     toast("State file downloaded");
   }
   function importStateFile(file) {
