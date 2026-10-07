@@ -231,7 +231,7 @@ the composer) — and 35 new command-palette entries (`⌘K`).
   focus-friendly modals, reduced-motion honored globally
 
 **Developer**
-- `mwai.help()` / `mwai.dump()` / `mwai.prefs` in the browser console
+- `cortexspace.help()` / `cortexspace.dump()` / `cortexspace.prefs` in the browser console
 - Copy-diagnostics, in-memory request log (`GET /api/requests`), version footer
 
 ## Wave 6 — 500+ more
@@ -302,7 +302,7 @@ entry, a text operation, a chip, a card. Tallies per category:
   3-sends-in-20s sprinter…)
 - Speech: read the last answer aloud (`/speak`), stop with `/stop`
 - State: copy / export / import the full local UI state as JSON;
-  `mwai.uptime()`, `mwai.workspace()`, `mwai.state()`, … in the console
+  `cortexspace.uptime()`, `cortexspace.workspace()`, `cortexspace.state()`, … in the console
 
 ## Keyboard
 

@@ -24,10 +24,10 @@
     return e;
   }
 
-  /* ---------------- persistent store (mwai-w6-*) ---------------- */
+  /* ---------------- persistent store (cs-w6-*) ---------------- */
   const LS = {
-    get(key, def) { try { const v = localStorage.getItem("mwai-w6-" + key); return v == null ? def : JSON.parse(v); } catch { return def; } },
-    set(key, val) { try { localStorage.setItem("mwai-w6-" + key, JSON.stringify(val)); return true; } catch { return false; } },
+    get(key, def) { try { const v = localStorage.getItem("cs-w6-" + key); return v == null ? def : JSON.parse(v); } catch { return def; } },
+    set(key, val) { try { localStorage.setItem("cs-w6-" + key, JSON.stringify(val)); return true; } catch { return false; } },
   };
   const counters = LS.get("counters", {});
   function count(key, n = 1) { counters[key] = (counters[key] || 0) + n; LS.set("counters", counters); return counters[key]; }
@@ -283,11 +283,11 @@
     document.body.dataset.w6theme = t;
     document.body.classList.toggle("w6-force-light", t === "light");
     document.body.classList.toggle("w6-force-dark", t === "dark");
-    localStorage.setItem("mwai-w6-theme", t);
+    localStorage.setItem("cs-w6-theme", t);
     refreshStatusChips();
   }
   function initTheme() {
-    const saved = localStorage.getItem("mwai-w6-theme");
+    const saved = localStorage.getItem("cs-w6-theme");
     if (saved) { setW6Theme(saved); return; }
     if (prefs.follow_os) {
       const mq = matchMedia("(prefers-color-scheme: dark)");
@@ -1185,7 +1185,7 @@
       { ic: "🏠", label: "Local-first preset", f: () => preset("local-first") },
       { ic: "☁️", label: "Cloud-power preset", f: () => preset("cloud-power") });
     E.push({ grp: "View tweaks", ic: "🔍+", label: "Zoom in", f: () => zoomBy(1) },
-      { ic: "🔍−", label: "Zoom out", f: () => zoomBy(-10) },
+      { ic: "🔍−", label: "Zoom out", f: () => zoomBy(-1) },
       { ic: "1:1", label: "Zoom reset", f: () => zoomBy(0) },
       { ic: "A+", label: "Font larger", f: () => setPref("font_size", Math.min(20, prefs.font_size + 1)) },
       { ic: "A−", label: "Font smaller", f: () => setPref("font_size", Math.max(12, prefs.font_size - 1)) },
@@ -1201,7 +1201,15 @@
     return E;
   }
   function preset(n) { api("/api/settings/preset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: n }) }).then(() => toast("Preset: " + n)); }
-  function zoomBy(d) { let v = parseFloat(localStorage.getItem("mwai-zoom") || "100"); if (d) v += d; else v = 100; v = Math.max(60, Math.min(160, v)); localStorage.setItem("mwai-zoom", String(v)); document.body.style.zoom = v / 100; toast("Zoom " + v + "%"); }
+  function zoomBy(d) {
+    let v = parseFloat(localStorage.getItem("cs-zoom") || "1");
+    if (d) v += d * 0.1; else v = 1;
+    v = Math.max(0.6, Math.min(1.6, Math.round(v * 10) / 10));
+    localStorage.setItem("cs-zoom", String(v));
+    if (v === 1) root.style.removeProperty("--zoom");
+    else root.style.setProperty("--zoom", String(v));
+    toast("Zoom " + Math.round(v * 100) + "%");
+  }
   function showView(v) {
     if (v === "settings") { const p = $("#provider-chip"); if (p) p.click(); }
     else { const b = $("#btn-settings-back"); if (b && !$("#view-settings").classList.contains("hidden")) b.click(); }
@@ -2098,7 +2106,7 @@
       templates_custom: LS.get("tcpl", []),
       watched: LS.get("watched", []),
       urls: LS.get("bhist", []),
-      localStorage: Object.keys(localStorage).filter((k) => k.startsWith("mwai")).reduce((o, k) => (o[k] = localStorage.getItem(k), o), {}),
+      localStorage: Object.keys(localStorage).filter((k) => k.startsWith("cs")).reduce((o, k) => (o[k] = localStorage.getItem(k), o), {}),
     };
     copy(JSON.stringify(state, null, 2), "Full state copied");
     count("state");
@@ -2133,13 +2141,13 @@
     const toasts = $("#toasts");
     if (toasts) toasts.setAttribute("aria-live", "polite");
     // dev console extras
-    if (window.mwai) {
-      window.mwai.uptime = async () => console.log(await api("/api/uptime"));
-      window.mwai.sessions = async () => console.log(await api("/api/sessions"));
-      window.mwai.workspace = async () => console.log(await api("/api/workspace/info"));
-      window.mwai.easter = () => { helloType(); };
-      window.mwai.archive = () => { const c = currentChatId(); if (c) doArchive(c, true); };
-      window.mwai.state = copyState;
+    if (window.cortexspace) {
+      window.cortexspace.uptime = async () => console.log(await api("/api/uptime"));
+      window.cortexspace.sessions = async () => console.log(await api("/api/sessions"));
+      window.cortexspace.workspace = async () => console.log(await api("/api/workspace/info"));
+      window.cortexspace.easter = () => { helloType(); };
+      window.cortexspace.archive = () => { const c = currentChatId(); if (c) doArchive(c, true); };
+      window.cortexspace.state = copyState;
     }
     // footer button: state export/import + dev log
     const foot = $("#app-footer") || $("#app");

@@ -5,6 +5,17 @@
 (function () {
   "use strict";
 
+  /* one-time migration: legacy "mwai-*" storage keys -> "cs-*" (name change) */
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("mwai-"))
+      .forEach((k) => {
+        const v = localStorage.getItem(k);
+        localStorage.setItem("cs-" + k.slice(5), v);
+        localStorage.removeItem(k);
+      });
+  } catch {}
+
   /* ---------------- helpers ---------------- */
 
   const $ = (s, r) => (r || document).querySelector(s);
@@ -99,24 +110,24 @@
     panelTab: "file",
     panelOpen: true,
     sidebarOpen: true,
-    theme: localStorage.getItem("mwai-theme") || (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
+    theme: localStorage.getItem("cs-theme") || (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
     context: [],           // attached file paths
     paletteOpen: false,
     activity: [],          // current chat tool events
     streamText: "",
     actFilter: "all",      // activity feed filter
     expanded: null,        // Set of expanded dir paths (init on first tree load)
-    bookmarks: JSON.parse(localStorage.getItem("mwai-bookmarks") || "[]"),
+    bookmarks: JSON.parse(localStorage.getItem("cs-bookmarks") || "[]"),
     unread: 0,             // new items while scrolled up
     nearBottom: true,
-    secs: JSON.parse(localStorage.getItem("mwai-secs") || "{}"),
+    secs: JSON.parse(localStorage.getItem("cs-secs") || "{}"),
     focusPrev: null,
   };
 
   document.documentElement.dataset.theme = state.theme;
 
-  function saveExpanded() { localStorage.setItem("mwai-expanded", JSON.stringify([...state.expanded])); }
-  function saveBookmarks() { localStorage.setItem("mwai-bookmarks", JSON.stringify(state.bookmarks)); }
+  function saveExpanded() { localStorage.setItem("cs-expanded", JSON.stringify([...state.expanded])); }
+  function saveBookmarks() { localStorage.setItem("cs-bookmarks", JSON.stringify(state.bookmarks)); }
   function bumpUnread(delta) { if (!state.nearBottom) { state.unread += delta || 1; updateJumpBtn(false); } }
 
   /* ---------------- modal ---------------- */
@@ -269,7 +280,7 @@
     try {
       const d = await api("/api/chats/" + id);
       backup = { chats: [{ ...d.chat, messages: d.messages.map((m) => ({ id: m.id, chat_id: d.chat.id, role: m.role, content: m.content, meta: m.meta || {}, seq: m.seq != null ? m.seq : 0, created_at: m.created_at })) }] };
-      localStorage.setItem("mwai-trash-chat", JSON.stringify(backup));
+      localStorage.setItem("cs-trash-chat", JSON.stringify(backup));
     } catch { /* snapshot best-effort */ }
     await api("/api/chats/" + id, { method: "DELETE" });
     if (state.chat && state.chat.id === id) { state.chat = null; state.messages = []; renderMessages(); }
@@ -334,7 +345,7 @@
     const d = await api("/api/files");
     state.tree = d.tree;
     if (state.expanded === null) {
-      const saved = localStorage.getItem("mwai-expanded");
+      const saved = localStorage.getItem("cs-expanded");
       if (saved !== null) { try { state.expanded = new Set(JSON.parse(saved)); } catch { state.expanded = collectDirs(state.tree); } }
       else state.expanded = collectDirs(state.tree);
     }
@@ -444,7 +455,7 @@
   function applyPins() {
     const chatId = state.chat && state.chat.id;
     if (!chatId) return;
-    const pins = new Set((JSON.parse(localStorage.getItem("mwai-pins") || "{}")[chatId]) || []);
+    const pins = new Set((JSON.parse(localStorage.getItem("cs-pins") || "{}")[chatId]) || []);
     $$("#msg-list .msg").forEach((n) => n.classList.toggle("pinned", pins.has(n.dataset.mid)));
   }
 
@@ -855,7 +866,7 @@
       if (cid && oldId) api(`/api/chats/${cid}/messages/${oldId}`, { method: "DELETE" }).catch(() => {});
       state._editMid = null;
     }
-    localStorage.removeItem(state.chat ? "mwai-draft-" + state.chat.id : "mwai-draft-new");
+    localStorage.removeItem(state.chat ? "cs-draft-" + state.chat.id : "cs-draft-new");
     const df = $("#draft-flag"); if (df) df.classList.add("hidden");
     W5_STATS.msgs++; w5stat("msgs", W5_STATS.msgs);
     checkAchievements();
@@ -954,7 +965,7 @@
       const item = $$("#chat-list .chat-item").find((n) => n.querySelector(".ci-title")?.textContent === state.chat?.title);
       if (item) { item.classList.remove("retitled"); void item.offsetWidth; item.classList.add("retitled"); }
     }).catch(() => {});
-    if (localStorage.getItem("mwai-notify") === "1" && "Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
+    if (localStorage.getItem("cs-notify") === "1" && "Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
       try {
         new Notification("CortexSpace — done", { body: state.chat ? state.chat.title : "Your turn finished" });
       } catch { /* no Notification support */ }
@@ -1588,7 +1599,7 @@
   function toggleTheme() {
     state.theme = state.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = state.theme;
-    localStorage.setItem("mwai-theme", state.theme);
+    localStorage.setItem("cs-theme", state.theme);
     $("#btn-theme svg use").setAttribute("href", state.theme === "dark" ? "#i-sun" : "#i-moon");
   }
 
@@ -2140,34 +2151,34 @@ ${body}
     // ---- appearance: theme / font size / motion ----
     document.documentElement.dataset.theme = state.theme;
     $("#btn-theme svg use").setAttribute("href", state.theme === "dark" ? "#i-sun" : "#i-moon");
-    const fsCur = localStorage.getItem("mwai-fs") || "m";
+    const fsCur = localStorage.getItem("cs-fs") || "m";
     if (fsCur !== "m") document.documentElement.dataset.fs = fsCur;
-    const motionOn = localStorage.getItem("mwai-motion") !== "off";
+    const motionOn = localStorage.getItem("cs-motion") !== "off";
     document.documentElement.dataset.motion = motionOn ? "on" : "off";
     const motionBox = $("#set-motion");
     if (motionBox) {
       motionBox.checked = motionOn;
       motionBox.addEventListener("change", (e) => {
         document.documentElement.dataset.motion = e.target.checked ? "on" : "off";
-        localStorage.setItem("mwai-motion", e.target.checked ? "on" : "off");
+        localStorage.setItem("cs-motion", e.target.checked ? "on" : "off");
       });
     }
     const notifyBox = $("#set-notify");
     if (notifyBox) {
-      notifyBox.checked = localStorage.getItem("mwai-notify") === "1";
+      notifyBox.checked = localStorage.getItem("cs-notify") === "1";
       notifyBox.addEventListener("change", (e) => {
-        localStorage.setItem("mwai-notify", e.target.checked ? "1" : "0");
+        localStorage.setItem("cs-notify", e.target.checked ? "1" : "0");
         if (e.target.checked && "Notification" in window && Notification.permission === "default") {
           Notification.requestPermission();
         }
       });
     }
-    initSeg("#seg-theme", "mwai-theme", (v) => {
+    initSeg("#seg-theme", "cs-theme", (v) => {
       state.theme = v;
       document.documentElement.dataset.theme = v;
       $("#btn-theme svg use").setAttribute("href", v === "dark" ? "#i-sun" : "#i-moon");
     });
-    initSeg("#seg-fs", "mwai-fs", (v) => {
+    initSeg("#seg-fs", "cs-fs", (v) => {
       if (v === "m") document.documentElement.removeAttribute("data-fs");
       else document.documentElement.dataset.fs = v;
     });
@@ -2177,12 +2188,12 @@ ${body}
     $("#empty-greet").textContent = h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 
     // ---- resizable regions ----
-    const savedSide = localStorage.getItem("mwai-side-w");
+    const savedSide = localStorage.getItem("cs-side-w");
     if (savedSide) document.documentElement.style.setProperty("--side-w", savedSide);
-    const savedPanel = localStorage.getItem("mwai-panel-w");
+    const savedPanel = localStorage.getItem("cs-panel-w");
     if (savedPanel) document.documentElement.style.setProperty("--panel-w", savedPanel);
-    initResize("#rs-side", "--side-w", 200, 440, "mwai-side-w", "side");
-    initResize("#rs-panel", "--panel-w", 300, 640, "mwai-panel-w", "panel");
+    initResize("#rs-side", "--side-w", 200, 440, "cs-side-w", "side");
+    initResize("#rs-panel", "--panel-w", 300, 640, "cs-panel-w", "panel");
 
     // ---- collapsible sidebar sections ----
     for (const id of ["chats", "workspace"]) {
@@ -2193,7 +2204,7 @@ ${body}
       if (head) head.onclick = () => {
         sec.classList.toggle("collapsed");
         state.secs[id] = sec.classList.contains("collapsed");
-        localStorage.setItem("mwai-secs", JSON.stringify(state.secs));
+        localStorage.setItem("cs-secs", JSON.stringify(state.secs));
       };
     }
 
@@ -2227,9 +2238,9 @@ ${body}
       window.location.href = "/api/workspace/zip";
       toast("Downloading workspace…");
     };
-    $("#tour-skip").onclick = () => { localStorage.setItem("mwai-tour", "done"); tourHide(); };
+    $("#tour-skip").onclick = () => { localStorage.setItem("cs-tour", "done"); tourHide(); };
     $("#tour-next").onclick = () => {
-      if (tourIdx >= TOUR_STEPS.length - 1) { localStorage.setItem("mwai-tour", "done"); tourHide(); }
+      if (tourIdx >= TOUR_STEPS.length - 1) { localStorage.setItem("cs-tour", "done"); tourHide(); }
       else { tourIdx++; tourStep(); }
     };
 
@@ -2503,13 +2514,13 @@ ${body}
     openFile("welcome.md").catch(() => {});
     loadUsage().catch(() => {});
     // first-run onboarding tour
-    if (!localStorage.getItem("mwai-tour")) {
+    if (!localStorage.getItem("cs-tour")) {
       setTimeout(() => { tourIdx = 0; tourShow(); }, 900);
     }
     $("#composer").focus();
 
     // ---- wave 5 ----
-    mwai5Init();
+    csWave5Init();
   }
 
   /* ============================================================
@@ -2541,9 +2552,9 @@ ${body}
     { key: "nightTo", label: "Night to", type: "time", def: "07:00" },
   ];
   let PREFS = {};
-  try { PREFS = JSON.parse(localStorage.getItem("mwai-prefs") || "{}"); } catch { PREFS = {}; }
+  try { PREFS = JSON.parse(localStorage.getItem("cs-prefs") || "{}"); } catch { PREFS = {}; }
   const pref = (k) => (PREFS[k] !== undefined ? PREFS[k] : (PREF_DEFS.find((d) => d.key === k) || { def: undefined }).def);
-  function setPref(k, v) { PREFS[k] = v; localStorage.setItem("mwai-prefs", JSON.stringify(PREFS)); applyPrefs(); }
+  function setPref(k, v) { PREFS[k] = v; localStorage.setItem("cs-prefs", JSON.stringify(PREFS)); applyPrefs(); }
   function applyPrefs() {
     const root = document.documentElement;
     for (const d of PREF_DEFS) {
@@ -2579,7 +2590,7 @@ ${body}
     r.onload = () => {
       try {
         const d = JSON.parse(r.result);
-        if (d.prefs && typeof d.prefs === "object") { PREFS = d.prefs; localStorage.setItem("mwai-prefs", JSON.stringify(PREFS)); }
+        if (d.prefs && typeof d.prefs === "object") { PREFS = d.prefs; localStorage.setItem("cs-prefs", JSON.stringify(PREFS)); }
         if (Array.isArray(d.bookmarks)) { state.bookmarks = d.bookmarks; saveBookmarks(); }
         applyPrefs();
         renderAppearSettings();
@@ -2615,11 +2626,11 @@ ${body}
   /* ---- toast history ---- */
 
   let TOASTS_HIST = [];
-  try { TOASTS_HIST = JSON.parse(localStorage.getItem("mwai-thist") || "[]"); } catch { TOASTS_HIST = []; }
+  try { TOASTS_HIST = JSON.parse(localStorage.getItem("cs-thist") || "[]"); } catch { TOASTS_HIST = []; }
   function histPush(msg, kind) {
     TOASTS_HIST.unshift({ t: Date.now(), msg, kind });
     TOASTS_HIST = TOASTS_HIST.slice(0, 60);
-    localStorage.setItem("mwai-thist", JSON.stringify(TOASTS_HIST));
+    localStorage.setItem("cs-thist", JSON.stringify(TOASTS_HIST));
     renderToastHistory();
   }
 
@@ -2696,10 +2707,10 @@ ${body}
     { id: "explorer", name: "Explorer", desc: "Open the Insights panel", icon: "📊" },
   ];
   let ACH = {};
-  try { ACH = JSON.parse(localStorage.getItem("mwai-ach") || "{}"); } catch { ACH = {}; }
+  try { ACH = JSON.parse(localStorage.getItem("cs-ach") || "{}"); } catch { ACH = {}; }
   const W5_STATS = { msgs: 0, saves: 0, tools: 0, streak: 0 };
-  try { Object.assign(W5_STATS, JSON.parse(localStorage.getItem("mwai-w5s") || "{}")); } catch { /* keep defaults */ }
-  function w5stat(k, v) { W5_STATS[k] = v; localStorage.setItem("mwai-w5s", JSON.stringify(W5_STATS)); }
+  try { Object.assign(W5_STATS, JSON.parse(localStorage.getItem("cs-w5s") || "{}")); } catch { /* keep defaults */ }
+  function w5stat(k, v) { W5_STATS[k] = v; localStorage.setItem("cs-w5s", JSON.stringify(W5_STATS)); }
   function checkAchievements() {
     const now = new Date();
     const h = now.getHours();
@@ -2716,7 +2727,7 @@ ${body}
     for (const a of ACHIEVEMENTS) {
       if (ACH[a.id] || !conds[a.id]) continue;
       ACH[a.id] = now.toISOString();
-      localStorage.setItem("mwai-ach", JSON.stringify(ACH));
+      localStorage.setItem("cs-ach", JSON.stringify(ACH));
       confetti(90);
       toast(`${a.icon} Achievement unlocked: ${a.name} — ${a.desc}`, "ach", 6000);
     }
@@ -2778,8 +2789,8 @@ ${body}
     { name: "Reading log", body: "# Reading log\n\n## Currently reading\n- \n\n## Finished this month\n| Book | Pages | Rating |\n|---|---|---|\n|  |  | ⭐⭐⭐ |\n\n## Highlights\n> \n" },
   ];
   let TPL_CUSTOM = [];
-  try { TPL_CUSTOM = JSON.parse(localStorage.getItem("mwai-tpl") || "[]"); } catch { TPL_CUSTOM = []; }
-  function saveTplCustom() { localStorage.setItem("mwai-tpl", JSON.stringify(TPL_CUSTOM)); }
+  try { TPL_CUSTOM = JSON.parse(localStorage.getItem("cs-tpl") || "[]"); } catch { TPL_CUSTOM = []; }
+  function saveTplCustom() { localStorage.setItem("cs-tpl", JSON.stringify(TPL_CUSTOM)); }
   const todayStr = () => new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   /* ---- prompt library (10 built-ins + star/search/CRUD) ---- */
@@ -2797,9 +2808,9 @@ ${body}
     { name: "Teach me in 3 steps", body: "Teach me this in exactly 3 steps, from basics to practice, with one check-question after each step:" },
   ];
   let PL_CUSTOM = [];
-  try { PL_CUSTOM = JSON.parse(localStorage.getItem("mwai-pl") || "[]"); } catch { PL_CUSTOM = []; }
-  let PL_STARS = new Set(JSON.parse(localStorage.getItem("mwai-plstars") || "[]"));
-  function savePL() { localStorage.setItem("mwai-pl", JSON.stringify(PL_CUSTOM)); localStorage.setItem("mwai-plstars", JSON.stringify([...PL_STARS])); }
+  try { PL_CUSTOM = JSON.parse(localStorage.getItem("cs-pl") || "[]"); } catch { PL_CUSTOM = []; }
+  let PL_STARS = new Set(JSON.parse(localStorage.getItem("cs-plstars") || "[]"));
+  function savePL() { localStorage.setItem("cs-pl", JSON.stringify(PL_CUSTOM)); localStorage.setItem("cs-plstars", JSON.stringify([...PL_STARS])); }
 
   /* ---- quick actions (8) ---- */
 
@@ -2886,26 +2897,26 @@ ${body}
   /* ---- dev console ---- */
 
   function initDevConsole() {
-    window.mwai = {
+    window.cortexspace = {
       help: () => console.log("%cCortexSpace dev console", "font-weight:bold",
-        "\n• mwai.dump() — dump state", "\n• mwai.stats() — usage stats",
-        "\n• mwai.prefs — interface prefs", "\n• mwai.toast('msg') — test toast",
-        "\n• mwai.confetti() — confetti", "\n• mwai.party() — party mode"),
+        "\n• cortexspace.dump() — dump state", "\n• cortexspace.stats() — usage stats",
+        "\n• cortexspace.prefs — interface prefs", "\n• cortexspace.toast('msg') — test toast",
+        "\n• cortexspace.confetti() — confetti", "\n• cortexspace.party() — party mode"),
       dump: () => console.log(JSON.stringify({
         chat: state.chat && state.chat.id, messages: state.messages.length,
         chats: state.chats.length, files: state.tree.length, openFile: state.openFile && state.openFile.path,
         prefs: PREFS, settings: state.settings,
       }, null, 2)),
       stats: async () => console.log(await api("/api/stats?days=14")),
-      prefs: new Proxy(PREFS, { get: (t, k) => t[k], set: (t, k, v) => { t[k] = v; localStorage.setItem("mwai-prefs", JSON.stringify(t)); applyPrefs(); return true; } }),
+      prefs: new Proxy(PREFS, { get: (t, k) => t[k], set: (t, k, v) => { t[k] = v; localStorage.setItem("cs-prefs", JSON.stringify(t)); applyPrefs(); return true; } }),
       toast: (m) => toast(m),
       confetti: () => confetti(160),
       party: () => toggleParty(),
     };
     const btn = $("#btn-dev");
     if (btn) btn.onclick = () => {
-      mwai.help();
-      toast("Dev console ready: mwai.help() in DevTools console");
+      cortexspace.help();
+      toast("Dev console ready: cortexspace.help() in DevTools console");
     };
   }
   async function copyDiagnostics() {
@@ -2919,7 +2930,7 @@ ${body}
       "screen: " + innerWidth + "x" + innerHeight,
       "provider: " + s.provider + " / " + (s.provider_model ? s.provider_model() : ""),
       "chats: " + (d.chats ?? "?"), "messages(7d): " + (d.messages ?? "?"),
-      "localStorage keys: " + Object.keys(localStorage).filter((k) => k.startsWith("mwai")).join(", "),
+      "localStorage keys: " + Object.keys(localStorage).filter((k) => k.startsWith("cs")).join(", "),
       "time: " + new Date().toISOString(),
     ].join("\n");
     try { await navigator.clipboard.writeText(text); toast("Diagnostics copied to clipboard"); }
@@ -3106,9 +3117,9 @@ ${body}
     $("#btn-about-set").onclick = aboutModal;
     const cc = $("#set-custom-css");
     if (cc) {
-      cc.value = localStorage.getItem("mwai-custom-css") || "";
+      cc.value = localStorage.getItem("cs-custom-css") || "";
       if (cc.value) { PREFS.customCss = cc.value; }
-      cc.addEventListener("input", () => { localStorage.setItem("mwai-custom-css", cc.value); PREFS.customCss = cc.value; localStorage.setItem("mwai-prefs", JSON.stringify(PREFS)); applyPrefs(); });
+      cc.addEventListener("input", () => { localStorage.setItem("cs-custom-css", cc.value); PREFS.customCss = cc.value; localStorage.setItem("cs-prefs", JSON.stringify(PREFS)); applyPrefs(); });
     }
     const btns = { reset: null };
     const resetBtn = document.createElement("button");
@@ -3245,12 +3256,12 @@ ${body}
     if (!w) { toast("Open a file to edit first", "err"); return; }
     w.classList.toggle("nowrap");
     $("#btn-file-wrap").classList.toggle("on", w.classList.contains("nowrap"));
-    localStorage.setItem("mwai-wrap", w.classList.contains("nowrap") ? "off" : "on");
+    localStorage.setItem("cs-wrap", w.classList.contains("nowrap") ? "off" : "on");
   }
   function bumpEditorFont(dir) {
-    const cur = parseFloat(localStorage.getItem("mwai-ffs") || "1");
+    const cur = parseFloat(localStorage.getItem("cs-ffs") || "1");
     const next = Math.min(2, Math.max(0.6, +(cur + dir * 0.12).toFixed(2)));
-    localStorage.setItem("mwai-ffs", String(next));
+    localStorage.setItem("cs-ffs", String(next));
     document.documentElement.style.setProperty("--ffs-scale", String(next));
     toast("Editor font ×" + next.toFixed(2));
   }
@@ -3338,9 +3349,9 @@ ${body}
 
   /* ---- tree: filter / sort / favorites ---- */
 
-  let TREE_FAVS = new Set(JSON.parse(localStorage.getItem("mwai-favs") || "[]"));
-  function saveFavs() { localStorage.setItem("mwai-favs", JSON.stringify([...TREE_FAVS])); }
-  let treeSortMode = localStorage.getItem("mwai-treesort") || "name";
+  let TREE_FAVS = new Set(JSON.parse(localStorage.getItem("cs-favs") || "[]"));
+  function saveFavs() { localStorage.setItem("cs-favs", JSON.stringify([...TREE_FAVS])); }
+  let treeSortMode = localStorage.getItem("cs-treesort") || "name";
   let treeFavsOnly = false;
   function sortNodes(nodes, mode) {
     const arr = [...nodes];
@@ -3364,14 +3375,14 @@ ${body}
 
   /* ---- browser: history / nav ---- */
 
-  let B_HIST = JSON.parse(localStorage.getItem("mwai-bhist") || "[]");
+  let B_HIST = JSON.parse(localStorage.getItem("cs-bhist") || "[]");
   let B_HIST_IDX = -1;
   function bhistPush(u) {
     B_HIST = B_HIST.filter((x) => x !== u);
     B_HIST.push(u);
     B_HIST = B_HIST.slice(-25);
     B_HIST_IDX = B_HIST.length - 1;
-    localStorage.setItem("mwai-bhist", JSON.stringify(B_HIST));
+    localStorage.setItem("cs-bhist", JSON.stringify(B_HIST));
     updateNavBtns();
   }
   function bhistGo(delta) {
@@ -3636,7 +3647,7 @@ ${body}
 
   function setZoom(z) {
     z = Math.min(1.4, Math.max(0.7, z));
-    localStorage.setItem("mwai-zoom", String(z));
+    localStorage.setItem("cs-zoom", String(z));
     document.documentElement.style.setProperty("--zoom", z === 1 ? "" : String(z));
     if (z === 1) document.documentElement.style.removeProperty("--zoom");
     toast("Zoom " + Math.round(z * 100) + "%");
@@ -3658,7 +3669,7 @@ ${body}
   function pinMessage() {
     const chatId = state.chat && state.chat.id;
     if (!chatId) return;
-    let pins = JSON.parse(localStorage.getItem("mwai-pins") || "{}");
+    let pins = JSON.parse(localStorage.getItem("cs-pins") || "{}");
     const key = chatId;
     const cur = new Set(pins[key] || []);
     // pin the last assistant message
@@ -3670,7 +3681,7 @@ ${body}
       }
     }
     pins[key] = [...cur];
-    localStorage.setItem("mwai-pins", JSON.stringify(pins));
+    localStorage.setItem("cs-pins", JSON.stringify(pins));
     renderMessages();
   }
   function searchInChat() {
@@ -3792,12 +3803,12 @@ ${body}
   function moodPicker() {
     const chatId = state.chat && state.chat.id;
     if (!chatId) { toast("Start a chat first", "err"); return; }
-    let moods = JSON.parse(localStorage.getItem("mwai-moods") || "{}");
+    let moods = JSON.parse(localStorage.getItem("cs-moods") || "{}");
     const cur = moods[chatId] || "";
     const pick = prompt("Pick a mood for this chat (or blank to clear):\n\n" + MOODS.join("  "), cur);
     if (pick === null) return;
     if (pick.trim()) moods[chatId] = pick.trim(); else delete moods[chatId];
-    localStorage.setItem("mwai-moods", JSON.stringify(moods));
+    localStorage.setItem("cs-moods", JSON.stringify(moods));
     const titleEl = $("#chat-title");
     renderMoodBadge();
   }
@@ -3806,21 +3817,21 @@ ${body}
     const badge = $("#chat-mood");
     if (!badge) return;
     if (!chatId) { badge.textContent = ""; return; }
-    const moods = JSON.parse(localStorage.getItem("mwai-moods") || "{}");
+    const moods = JSON.parse(localStorage.getItem("cs-moods") || "{}");
     badge.textContent = moods[chatId] || "";
   }
 
   /* ---- daily goal ---- */
 
   function goalData() {
-    return JSON.parse(localStorage.getItem("mwai-goal") || "{}");
+    return JSON.parse(localStorage.getItem("cs-goal") || "{}");
   }
   function setGoal(n) {
     const v = prompt("Daily goal — how many messages a day? (blank to clear)", goalData().n || 10);
     if (v === null) return;
     const num = parseInt(v, 10);
-    if (!num || num < 1) { localStorage.removeItem("mwai-goal"); renderGoal(); return; }
-    localStorage.setItem("mwai-goal", JSON.stringify({ n: num, day: todayStr(), count: W5_STATS.msgs }));
+    if (!num || num < 1) { localStorage.removeItem("cs-goal"); renderGoal(); return; }
+    localStorage.setItem("cs-goal", JSON.stringify({ n: num, day: todayStr(), count: W5_STATS.msgs }));
     renderGoal();
     toast("Daily goal: " + num + " messages/day");
   }
@@ -3841,7 +3852,7 @@ ${body}
     ring.title = `Daily goal: ${today}/${g.n} messages — click to change`;
     if (pct >= 100 && g.done !== today) {
       g.done = today;
-      localStorage.setItem("mwai-goal", JSON.stringify(g));
+      localStorage.setItem("cs-goal", JSON.stringify(g));
       confetti(100);
       toast("🎯 Daily goal hit! " + today + " messages.", "ach", 5000);
     }
@@ -3875,8 +3886,8 @@ ${body}
     { cmd: "lock", desc: "Toggle read-only on the open file", run: toggleFileLock },
     { cmd: "discard", desc: "Discard unsaved changes", run: discardFile },
     { cmd: "wrap", desc: "Toggle word wrap", run: toggleWrap },
-    { cmd: "zoomin", desc: "Zoom in", run: () => setZoom(parseFloat(localStorage.getItem("mwai-zoom") || "1") + 0.1) },
-    { cmd: "zoomout", desc: "Zoom out", run: () => setZoom(parseFloat(localStorage.getItem("mwai-zoom") || "1") - 0.1) },
+    { cmd: "zoomin", desc: "Zoom in", run: () => setZoom(parseFloat(localStorage.getItem("cs-zoom") || "1") + 0.1) },
+    { cmd: "zoomout", desc: "Zoom out", run: () => setZoom(parseFloat(localStorage.getItem("cs-zoom") || "1") - 0.1) },
     { cmd: "zoomreset", desc: "Reset zoom", run: () => setZoom(1) },
     { cmd: "pomo", desc: "Toggle pomodoro timer", run: togglePomodoro },
     { cmd: "party", desc: "Party mode", run: toggleParty },
@@ -3948,13 +3959,13 @@ ${body}
 
   /* ---- main init for wave 5 ---- */
 
-  function mwai5Init() {
+  function csWave5Init() {
     // restore zoom / editor font / wrap + apply prefs
-    const z = parseFloat(localStorage.getItem("mwai-zoom") || "1");
+    const z = parseFloat(localStorage.getItem("cs-zoom") || "1");
     if (z !== 1) document.documentElement.style.setProperty("--zoom", String(z));
-    const ffs = parseFloat(localStorage.getItem("mwai-ffs") || "1");
+    const ffs = parseFloat(localStorage.getItem("cs-ffs") || "1");
     if (ffs !== 1) document.documentElement.style.setProperty("--ffs-scale", String(ffs));
-    const wrapOn = localStorage.getItem("mwai-wrap") !== "off";
+    const wrapOn = localStorage.getItem("cs-wrap") !== "off";
     applyPrefs();
 
     // quick actions row
@@ -3972,7 +3983,7 @@ ${body}
       const v = comp.value;
       const words = v.trim() ? v.trim().split(/\s+/).length : 0;
       counts.textContent = pref("wordcount") ? v.length + " chars · " + words + " words" : "";
-      const key = state.chat ? "mwai-draft-" + state.chat.id : "mwai-draft-new";
+      const key = state.chat ? "cs-draft-" + state.chat.id : "cs-draft-new";
       if (v) {
         localStorage.setItem(key, v);
         const flag = $("#draft-flag");
@@ -4002,7 +4013,7 @@ ${body}
     const _openChat = openChat;
     openChat = async (id) => {
       await _openChat(id);
-      const draft = localStorage.getItem("mwai-draft-" + id);
+      const draft = localStorage.getItem("cs-draft-" + id);
       if (draft && !state.streaming) {
         const c = $("#composer");
         if (!c.value) { c.value = draft; autosize(c); $("#draft-flag").classList.remove("hidden"); setTimeout(() => $("#draft-flag").classList.add("hidden"), 2500); }
@@ -4025,8 +4036,8 @@ ${body}
     });
 
     // topbar
-    $("#btn-zoom-in").onclick = () => setZoom(parseFloat(localStorage.getItem("mwai-zoom") || "1") + 0.1);
-    $("#btn-zoom-out").onclick = () => setZoom(parseFloat(localStorage.getItem("mwai-zoom") || "1") - 0.1);
+    $("#btn-zoom-in").onclick = () => setZoom(parseFloat(localStorage.getItem("cs-zoom") || "1") + 0.1);
+    $("#btn-zoom-out").onclick = () => setZoom(parseFloat(localStorage.getItem("cs-zoom") || "1") - 0.1);
     $("#btn-mute").onclick = () => { setMute(!pref("sound")); $("#btn-mute").classList.toggle("on", !pref("sound")); };
     $("#btn-mute").classList.toggle("on", !pref("sound"));
     $("#btn-dnd").onclick = (e) => {
@@ -4089,7 +4100,7 @@ ${body}
     // tree tools
     $("#tree-filter").addEventListener("input", renderTree);
     $("#tree-sort").value = treeSortMode;
-    $("#tree-sort").addEventListener("change", (e) => { treeSortMode = e.target.value; localStorage.setItem("mwai-treesort", treeSortMode); renderTree(); });
+    $("#tree-sort").addEventListener("change", (e) => { treeSortMode = e.target.value; localStorage.setItem("cs-treesort", treeSortMode); renderTree(); });
     $("#btn-tree-favs").onclick = (e) => {
       treeFavsOnly = !treeFavsOnly;
       e.currentTarget.classList.toggle("on", treeFavsOnly);
@@ -4118,7 +4129,7 @@ ${body}
 
     // toast history
     $("#btn-toast-history").onclick = (e) => { e.stopPropagation(); renderToastHistory(); $("#toast-history").classList.toggle("hidden"); };
-    $("#th-clear").onclick = () => { TOASTS_HIST = []; localStorage.removeItem("mwai-thist"); renderToastHistory(); };
+    $("#th-clear").onclick = () => { TOASTS_HIST = []; localStorage.removeItem("cs-thist"); renderToastHistory(); };
 
     // settings
     renderAppearSettings();
@@ -4151,8 +4162,8 @@ ${body}
       const tag = (document.activeElement && document.activeElement.tagName) || "";
       const typing = /INPUT|TEXTAREA|SELECT/.test(tag);
       if (konamiCheck(e.key.toLowerCase())) return;
-      if (mod && e.key === "=") { e.preventDefault(); setZoom(parseFloat(localStorage.getItem("mwai-zoom") || "1") + 0.1); }
-      if (mod && e.key === "-") { e.preventDefault(); setZoom(parseFloat(localStorage.getItem("mwai-zoom") || "1") - 0.1); }
+      if (mod && e.key === "=") { e.preventDefault(); setZoom(parseFloat(localStorage.getItem("cs-zoom") || "1") + 0.1); }
+      if (mod && e.key === "-") { e.preventDefault(); setZoom(parseFloat(localStorage.getItem("cs-zoom") || "1") - 0.1); }
       if (mod && e.key === "0" && !typing) { e.preventDefault(); setZoom(1); }
       if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); openFind(); return; }
       if (mod && e.key.toLowerCase() === "p" && !typing) { e.preventDefault(); quickOpen(); return; }
@@ -4223,7 +4234,7 @@ ${body}
       _setPanelTab(tab);
       if (tab === "insights" && !ACH._explored) {
         ACH._explored = true;
-        localStorage.setItem("mwai-ach", JSON.stringify(ACH));
+        localStorage.setItem("cs-ach", JSON.stringify(ACH));
         checkAchievements();
       }
     };

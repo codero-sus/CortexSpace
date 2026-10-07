@@ -1,6 +1,6 @@
 /* CortexSpace — minimal service worker:
    cache-first for static assets, network-first for the UI shell. */
-const CACHE = "mwai-v1";
+const CACHE = "cortexspace-v2";
 const SHELL = ["/", "/static/styles.css", "/static/js/app.js", "/static/js/md.js", "/static/favicon.svg", "/static/manifest.json"];
 
 self.addEventListener("install", (e) => {
