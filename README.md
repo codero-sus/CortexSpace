@@ -66,6 +66,16 @@ full pipeline — streaming, tool cards, approvals, real file changes:
 
 **Settings → Model provider** (live status dots show which backends are reachable):
 
+- **Cortex LLMHoster (local, private — recommended local backend)** —
+  [codero-sus/Cortex_LLMHoster](https://github.com/codero-sus/Cortex_LLMHoster):
+  a free personal-use hoster that manages llama.cpp GGUF models directly —
+  no Ollama, no cloud account, no cloud key. Run it from its repo
+  (`python -m cortex_llmhoster` → dashboard on `http://127.0.0.1:8624/`),
+  pick the **Cortex LLMHoster** card here, and you're done. The base URL
+  defaults to `http://127.0.0.1:8624/v1`; if you set a `CORTEX_API_KEY`
+  local secret on that install, paste it in Settings (it protects the API —
+  it never leaves your machine). Leave the model blank to auto-use the first
+  model LLMHoster has loaded.
 - **Ollama (local, private)** — run `ollama serve` and `ollama pull llama3.2`,
   then paste the base URL + model. Tool calling works out of the box.
 - **OpenRouter (cloud, any model)** — paste an API key, pick a model

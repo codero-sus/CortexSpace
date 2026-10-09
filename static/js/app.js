@@ -1263,6 +1263,9 @@
     $("#set-oai-url").value = s.openai_base_url;
     $("#set-oai-key").value = s.openai_api_key;
     $("#set-oai-model").value = s.openai_model;
+    $("#set-cx-url").value = s.cortex_base_url;
+    $("#set-cx-key").value = s.cortex_api_key;
+    $("#set-cx-model").value = s.cortex_model;
     $("#set-temp").value = s.temperature;
     $("#temp-val").textContent = s.temperature;
     $("#set-mtok").value = s.max_tokens;
@@ -1284,6 +1287,7 @@
       { id: "demo", name: "Demo (built-in)", blurb: "Zero-config, offline. Try everything instantly." },
       { id: "ollama", name: "Ollama", blurb: "Local models on your machine. Private by default." },
       { id: "openrouter", name: "OpenRouter", blurb: "One key → 300+ cloud models." },
+      { id: "cortex", name: "Cortex LLMHoster", blurb: "Free local GGUF hosting — llama.cpp, no Ollama, no cloud key. :8624" },
       { id: "openai", name: "OpenAI-compatible", blurb: "OpenAI, Groq, LM Studio, vLLM — set the base URL." },
     ];
     for (const d of defs) {
@@ -1303,6 +1307,7 @@
     }
     $("#prov-ollama").classList.toggle("hidden", state.settings.provider !== "ollama");
     $("#prov-openrouter").classList.toggle("hidden", state.settings.provider !== "openrouter");
+    $("#prov-cortex").classList.toggle("hidden", state.settings.provider !== "cortex");
     $("#prov-openai").classList.toggle("hidden", state.settings.provider !== "openai");
   }
 
@@ -1331,6 +1336,9 @@
     s.openai_base_url = $("#set-oai-url").value.trim() || "https://api.openai.com/v1";
     s.openai_api_key = $("#set-oai-key").value.trim();
     s.openai_model = $("#set-oai-model").value.trim() || "gpt-4o-mini";
+    s.cortex_base_url = $("#set-cx-url").value.trim() || "http://127.0.0.1:8624/v1";
+    s.cortex_api_key = $("#set-cx-key").value.trim();
+    s.cortex_model = $("#set-cx-model").value.trim();
     s.temperature = parseFloat($("#set-temp").value);
     s.max_tokens = parseInt($("#set-mtok").value, 10);
     s.max_steps = Math.min(20, Math.max(1, parseInt($("#set-steps").value, 10) || 6));
@@ -1356,8 +1364,8 @@
     }
   }
 
-  const REFRESH_BTN = { ollama: "#btn-refresh-ollama", openrouter: "#btn-refresh-or", openai: "#btn-refresh-oai" };
-  const MODELS_LIST = { ollama: "#ollama-models", openrouter: "#or-models", openai: "#oai-models" };
+  const REFRESH_BTN = { ollama: "#btn-refresh-ollama", openrouter: "#btn-refresh-or", openai: "#btn-refresh-oai", cortex: "#btn-refresh-cx" };
+  const MODELS_LIST = { ollama: "#ollama-models", openrouter: "#or-models", openai: "#oai-models", cortex: "#cx-models" };
 
   async function refreshModels(pid) {
     const btn = $(REFRESH_BTN[pid]);
@@ -1404,6 +1412,7 @@
     if (s.provider === "ollama") return s.ollama_model;
     if (s.provider === "openrouter") return s.openrouter_model;
     if (s.provider === "openai") return s.openai_model;
+    if (s.provider === "cortex") return s.cortex_model || "auto (first loaded)";
     return "cortexspace-demo";
   }
 
@@ -2449,9 +2458,12 @@ ${body}
     $("#btn-refresh-ollama").onclick = () => refreshModels("ollama");
     $("#btn-refresh-or").onclick = () => refreshModels("openrouter");
     $("#btn-refresh-oai").onclick = () => refreshModels("openai");
+    $("#btn-refresh-cx").onclick = () => refreshModels("cortex");
     $("#btn-ping-ollama").onclick = () => pingProvider("ollama");
     $("#btn-ping-or").onclick = () => pingProvider("openrouter");
     $("#btn-ping-oai").onclick = () => pingProvider("openai");
+    $("#btn-refresh-cx").onclick = () => refreshModels("cortex");
+    $("#btn-ping-cx").onclick = () => pingProvider("cortex");
     $("#btn-reset-prompt").onclick = async () => {
       const d = await fetch("/api/providers").then((r) => r.json());
       // fetch default via settings reset field

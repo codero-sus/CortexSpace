@@ -40,6 +40,10 @@ class Settings:
     openai_base_url: str = "https://api.openai.com/v1"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    # Cortex LLMHoster (codero-sus/Cortex_LLMHoster) — free local GGUF hosting
+    cortex_base_url: str = "http://127.0.0.1:8624/v1"
+    cortex_api_key: str = ""
+    cortex_model: str = ""
     temperature: float = 0.4
     max_tokens: int = 2048
     max_steps: int = 6
@@ -58,6 +62,8 @@ class Settings:
             return self.openrouter_model
         if self.provider == "openai":
             return self.openai_model
+        if self.provider == "cortex":
+            return self.cortex_model
         return "cortexspace-demo"
 
 

@@ -14,7 +14,7 @@ from typing import Any, AsyncIterator, Dict, List
 import httpx
 
 from ..config import Settings
-from .base import ChatRequest, Provider
+from .base import ChatRequest, Provider, ProviderError
 
 _timeout = httpx.Timeout(600.0, connect=8.0)
 
@@ -73,6 +73,8 @@ class OpenAICompatProvider(Provider):
     # -- streaming ---------------------------------------------------------
 
     async def stream(self, req: ChatRequest) -> AsyncIterator[Dict[str, Any]]:
+        if self.id == "cortex":
+            req = ChatRequest(**{**req.__dict__, "model": await self._model(req.model)})
         body: Dict[str, Any] = {
             "model": req.model,
             "messages": self._normalize_messages(req.messages),
@@ -204,3 +206,42 @@ class OpenAIProvider(OpenAICompatProvider):
             api_key=settings.openai_api_key,
             ping_path="/models",
         )
+
+
+class CortexHosterProvider(OpenAICompatProvider):
+    """Cortex LLMHoster (github.com/codero-sus/Cortex_LLMHoster).
+
+    Free personal-use local model hoster: llama.cpp/GGUF first-class plus a
+    supervised adapter for any local engine that speaks OpenAI-compatible
+    HTTP. Default endpoint http://127.0.0.1:8624/v1. The API key, if set,
+    is the LOCAL bearer secret protecting that install — it never leaves
+    your machine. If no model is configured, the first model from
+    /v1/models is used."""
+    id = "cortex"
+    display = "Cortex LLMHoster (local)"
+    _resolved: str | None = None
+    last_model: str = ""  # model actually used on the most recent stream
+
+    def __init__(self, settings: Settings):
+        super().__init__(
+            settings,
+            base_url=settings.cortex_base_url,
+            api_key=settings.cortex_api_key,
+            ping_path="/models",
+        )
+        self._configured_model = settings.cortex_model
+
+    async def _model(self, req_model: str) -> str:
+        m = (req_model or self._configured_model or "").strip()
+        if m:
+            self.last_model = m
+            return m
+        if self._resolved:
+            self.last_model = self._resolved
+            return self._resolved
+        models = await self.list_models()
+        if not models:
+            raise ProviderError("Cortex LLMHoster is reachable but has no models loaded — start one in its dashboard (port 8624)")
+        self._resolved = models[0]
+        self.last_model = models[0]
+        return models[0]

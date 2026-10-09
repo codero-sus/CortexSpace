@@ -40,7 +40,7 @@
      very instance below. */
   const CS = { name: "CortexSpace", kind: "this machine", cs: true, dims: [1, 1, 1, 1, 1, 1, 1, 1],
     gap: "It's you. That's the point.",
-    kill: "One Python process. ~100 KB of hand-written JS. Your models, your speed, your approval, your machine." };
+    kill: "One Python process. ~100 KB of hand-written JS. Local GGUF via Cortex LLMHoster (no Ollama) or Ollama, any cloud model via OpenRouter — your speed, your approval, your machine." };
 
   const RIVALS = [
     { name: "Open WebUI", kind: "self-host · Docker", dims: [0, 0, 0.5, 0, 0.5, 1, 0.5, 1],

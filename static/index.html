@@ -311,6 +311,23 @@
               <div class="set-test"><button class="btn ghost" id="btn-ping-or">Test key</button><span id="ping-or" class="set-test-out"></span></div>
             </div>
 
+            <div class="set-grid" id="prov-cortex">
+              <label class="set-field">
+                <span>LLMHoster base URL <em>(default: its dashboard port)</em></span>
+                <input id="set-cx-url" type="text" spellcheck="false" placeholder="http://127.0.0.1:8624/v1">
+              </label>
+              <label class="set-field">
+                <span>Local secret <em>(its CORTEX_API_KEY, if you set one)</em></span>
+                <input id="set-cx-key" type="password" spellcheck="false" placeholder="optional — only protects this install">
+              </label>
+              <label class="set-field">
+                <span>Model <button class="link-btn" id="btn-refresh-cx" type="button">refresh list</button></span>
+                <input id="set-cx-model" type="text" list="cx-models" spellcheck="false" placeholder="blank = first loaded model">
+                <datalist id="cx-models"></datalist>
+              </label>
+              <div class="set-test"><button class="btn ghost" id="btn-ping-cx">Test connection</button><span id="ping-cx" class="set-test-out"></span></div>
+            </div>
+
             <div class="set-grid" id="prov-openai">
               <label class="set-field">
                 <span>Base URL <em>(OpenAI · Groq · LM Studio · vLLM · llama.cpp…)</em></span>

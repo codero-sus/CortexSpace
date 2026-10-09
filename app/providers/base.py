@@ -15,6 +15,10 @@ from typing import Any, AsyncIterator, Dict, List
 from ..config import Settings
 
 
+class ProviderError(Exception):
+    """Raised when a provider cannot complete a request (bad config, no model, etc.)."""
+
+
 @dataclass
 class ChatRequest:
     messages: List[Dict[str, Any]]

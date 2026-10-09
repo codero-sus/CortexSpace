@@ -283,6 +283,12 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
         else:
             final_text_parts.append("\n\n_(stopped: max agent steps reached)_")
 
+        # if the provider resolved a concrete model (e.g. Cortex LLMHoster
+        # auto-picked the first loaded model), report the real one
+        resolved = getattr(provider, "last_model", "") or ""
+        if not model and resolved:
+            model = resolved
+
         # persist the assistant turn
         content = "".join(final_text_parts)
         if not content and not pending_tool_calls:
