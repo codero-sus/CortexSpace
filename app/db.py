@@ -81,6 +81,21 @@ class DB:
                 completion_tokens INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             );
+            CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+                content, content='messages', content_rowid='rowid'
+            );
+            CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+                INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+                INSERT INTO messages_fts(messages_fts, rowid, content)
+                VALUES ('delete', old.rowid, old.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE OF content ON messages BEGIN
+                INSERT INTO messages_fts(messages_fts, rowid, content)
+                VALUES ('delete', old.rowid, old.content);
+                INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
+            END;
             """
         )
         # light migration: add columns to pre-existing databases
@@ -92,6 +107,14 @@ class DB:
                 c.execute(stmt)
             except sqlite3.OperationalError:
                 pass
+        # one-time FTS backfill for pre-existing databases
+        try:
+            n_msgs = c.execute("SELECT COUNT(*) n FROM messages").fetchone()["n"]
+            n_fts = c.execute("SELECT COUNT(*) n FROM messages_fts").fetchone()["n"]
+            if n_msgs and not n_fts:
+                c.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
+        except sqlite3.OperationalError:
+            pass
         c.commit()
 
     # --- settings -------------------------------------------------------
@@ -202,11 +225,39 @@ class DB:
         c.commit()
         return new_cid
 
+    def _fts_match(self, q: str) -> str:
+        """Sanitize a user query into a safe FTS5 phrase (case-insensitive)."""
+        return '"' + q.replace('"', '""') + '"'
+
     def search_messages(self, q: str, limit: int = 20, regex: bool = False,
                         case_sensitive: bool = False, whole_word: bool = False) -> list[dict]:
-        """Full-text-ish search across chat messages; grouped per chat with a snippet."""
+        """Full-text search across chat messages; grouped per chat with a snippet.
+
+        Plain queries ride the FTS5 index (fast at any size); case-sensitive
+        and regex queries fall back to scans."""
         c = self._conn()
-        if regex:
+        fts = None
+        if not regex and not case_sensitive and not whole_word:
+            try:
+                rows = c.execute(
+                    """
+                    SELECT m.chat_id, m.content, m.role, m.created_at,
+                           (SELECT title FROM chats c WHERE c.id = m.chat_id) AS chat_title
+                    FROM messages_fts f
+                    JOIN messages m ON m.rowid = f.rowid
+                    WHERE messages_fts MATCH ? AND m.role IN ('user','assistant')
+                    ORDER BY rank, m.created_at DESC
+                    LIMIT ?
+                    """,
+                    (self._fts_match(q), limit * 2),
+                ).fetchall()
+                fts = list(rows)
+            except sqlite3.OperationalError:
+                fts = None
+        if fts is not None:
+            finder = None  # FTS path: snippet centered on first token
+            rows = fts
+        elif regex:
             import re as _re
             try:
                 pat = _re.compile(q, 0 if case_sensitive else _re.IGNORECASE)
@@ -219,7 +270,6 @@ class DB:
                 FROM messages m
                 WHERE m.role IN ('user','assistant')
                 ORDER BY m.created_at DESC
-                LIMIT 400
                 """,
             ).fetchall()
             if pat is not None:
@@ -249,6 +299,9 @@ class DB:
             finder = lambda s, qq=q: s.lower().find(qq.lower())  # noqa: E731
             if case_sensitive:
                 finder = lambda s, qq=q: s.find(qq)  # noqa: E731
+        if finder is None:
+            first_tok = (q.split() or [""])[0].lower()
+            finder = (lambda s, t=first_tok: s.lower().find(t))  # noqa: E731
         by_chat: Dict[str, dict] = {}
         for r in rows:
             content = r["content"]

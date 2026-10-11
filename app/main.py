@@ -15,6 +15,7 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -59,12 +60,30 @@ init_settings_store(db)
 _seed_workspace()
 
 app = FastAPI(title="CortexSpace", version=VERSION)
+app.add_middleware(GZipMiddleware, minimum_size=1024)  # ~70% smaller transfers
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Static asset caching: 1 h for assets, no-cache for the HTML shell.
+import re as _re  # noqa: E402
+
+_STATIC_CACHE_RE = _re.compile(r"^/static/.*\.(?:js|css|json|ico|png|svg|woff2?)$")
+
+
+@app.middleware("http")
+async def _static_cache_headers(request: Request, call_next):
+    resp = await call_next(request)
+    p = request.url.path
+    if _STATIC_CACHE_RE.match(p):
+        resp.headers["Cache-Control"] = "public, max-age=3600"
+    elif p == "/":
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 # ---------------------------------------------------------------------------
 # Request log (dev): in-memory ring buffer of the last 200 API calls
@@ -353,8 +372,26 @@ async def chat_fork(cid: str, body: ChatFork):
     return {"id": new_cid}
 
 
+_STATS_CACHE: dict = {"ts": 0.0, "data": None}  # 10 s TTL — panels poll every 15 s
+
+
+def _stats_cached(days: int, force: bool = False):
+    import time as _t
+    now = _t.time()
+    if not force and _STATS_CACHE["data"] is not None and now - _STATS_CACHE["ts"] < 10:
+        return _STATS_CACHE["data"]
+    data = _compute_stats(days)
+    _STATS_CACHE["ts"] = now
+    _STATS_CACHE["data"] = data
+    return data
+
+
 @app.get("/api/stats")
-async def stats_endpoint(days: int = 14):
+async def stats_endpoint(days: int = 14, refresh: int = 0):
+    return _stats_cached(days, force=bool(refresh))
+
+
+def _compute_stats(days: int):
     days = max(7, min(90, days))
     import os as _os
 

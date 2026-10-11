@@ -493,6 +493,10 @@
     }
     if (m.role === "assistant") {
       actions.append(el("button", {
+        class: "ma-btn", title: "Read this message aloud",
+        onclick: () => speakText(m.content),
+      }, ico("#i-volume"), "Read"));
+      actions.append(el("button", {
         class: "ma-btn", title: "Fork a new chat from this point",
         onclick: () => forkChatFrom(m.id),
       }, ico("#i-fork"), "Fork here"));
@@ -505,6 +509,104 @@
     }
     return actions;
   }
+
+  function speakText(content) {
+    if (!(window.speechSynthesis)) return toast("Speech not supported in this browser", "warn");
+    const t = (content || "").replace(/[#*`>_[\]{}|]/g, " ").replace(/\s+/g, " ").trim();
+    if (!t) return toast("Nothing to read", "warn");
+    const u = new SpeechSynthesisUtterance(t.slice(0, 3000));
+    u.onend = () => { const b = $("#btn-mic"); };
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+    toast("Reading aloud… (press Dictate again or reload to stop)");
+  }
+
+  /* ---- voice input (Web Speech API — local browser, no cloud) ---- */
+  let _rec = null, _listening = false;
+  function toggleMic() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return toast("Voice input not supported in this browser", "warn");
+    const btn = $("#btn-mic");
+    if (_listening) { try { _rec.stop(); } catch {} return; }
+    _rec = new SR();
+    _rec.lang = navigator.language || "en-US";
+    _rec.interimResults = true;
+    _rec.continuous = false;
+    let base = "";
+    _rec.onstart = () => {
+      _listening = true;
+      btn.classList.add("listening");
+      const comp = $("#composer");
+      base = comp.value ? comp.value + " " : "";
+      toast("Listening… speak now");
+    };
+    _rec.onresult = (e) => {
+      const comp = $("#composer");
+      comp.value = base + [...e.results].map((x) => x[0].transcript).join(" ").trim();
+      comp.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    _rec.onerror = (e) => {
+      toast(e.error === "not-allowed" ? "Microphone blocked by the browser" : "Voice error: " + e.error, "err");
+    };
+    _rec.onend = () => {
+      _listening = false;
+      btn.classList.remove("listening");
+    };
+    try { _rec.start(); } catch { _rec = null; }
+  }
+
+  /* ---- daily token budget (local) ---- */
+  function budgetGet() {
+    const b = parseInt(localStorage.getItem("cs-token-budget") || "0", 10);
+    return isNaN(b) || b < 0 ? 0 : b;
+  }
+  function budgetToday() {
+    const t = localStorage.getItem("cs-token-today") || "{}";
+    try {
+      const d = JSON.parse(t);
+      if (d.date === new Date().toISOString().slice(0, 10)) return d.tokens || 0;
+    } catch {}
+    return 0;
+  }
+  function budgetAdd(tokens) {
+    if (!tokens) return;
+    const today = new Date().toISOString().slice(0, 10);
+    let d;
+    try { d = JSON.parse(localStorage.getItem("cs-token-today") || "{}"); } catch { d = {}; }
+    if (d.date !== today) d = { date: today, tokens: 0 };
+    d.tokens += tokens;
+    localStorage.setItem("cs-token-today", JSON.stringify(d));
+    renderBudget();
+  }
+  function renderBudget() {
+    const b = budgetGet();
+    const used = budgetToday();
+    const fmt = (n) => n >= 1000000 ? (n / 1000000).toFixed(1) + "M" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+    const chip = $("#status-budget");
+    if (chip) {
+      if (!b) { chip.classList.add("hidden"); }
+      else {
+        chip.classList.remove("hidden");
+        chip.textContent = "🪙 " + fmt(used) + " / " + fmt(b);
+        chip.classList.toggle("over", used > b);
+        if (used > b && localStorage.getItem("cs-budget-warned") !== todayKey()) {
+          localStorage.setItem("cs-budget-warned", todayKey());
+          toast("Daily token budget exceeded (" + fmt(used) + " / " + fmt(b) + ")", "warn", 6000, {
+            label: "Raise it", fn: () => { $("#set-budget").value = b * 2; $("#set-budget").dispatchEvent(new Event("input", { bubbles: true })); showView("settings"); },
+          });
+        }
+      }
+    }
+    const now = $("#budget-now"), fill = $("#budget-fill"), val = $("#budget-val");
+    if (now) now.textContent = used ? fmt(used) + " tok today" : "no tokens today";
+    if (val) val.textContent = b ? fmt(b) : "off";
+    if (fill) {
+      fill.style.width = b ? Math.min(100, (used / b) * 100) + "%" : "0%";
+      const bar = fill.parentElement;
+      if (bar) bar.classList.toggle("over", b > 0 && used > b);
+    }
+  }
+  function todayKey() { return new Date().toISOString().slice(0, 10); }
 
   function messageNode(m, opts = {}) {
     if (m.role === "user") {
@@ -561,6 +663,7 @@
     if (outT) bits.push(outT + " out");
     if (secs && outT) bits.push(Math.round(outT / secs) + " tok/s");
     if (secs) bits.push(secs.toFixed(1) + "s");
+    if (meta.ctx_chars) bits.push("ctx " + (meta.ctx_chars >= 1000 ? (meta.ctx_chars / 1000).toFixed(1) + "k" : meta.ctx_chars));
     return bits.join(" · ");
   }
 
@@ -920,7 +1023,17 @@
             streamDone = data;
             break;
           case "error":
-            toast(data.message, "err", 6000);
+            toast(data.message, "err", 9000, {
+              label: "Use offline demo",
+              fn: () => {
+                state.settings.provider = "demo";
+                putSettings({ provider: "demo" }).then(() => {
+                  updateModelBadge();
+                  toast("Switched to the offline demo — resending…");
+                  doSend(text, myContext);
+                });
+              },
+            });
             break;
         }
       }, state.controller.signal);
@@ -941,7 +1054,8 @@
       const tools = [...liveTools.values()].map((e) => ({ ...e.tool }));
       streamNode.remove();
       streamNode = null;
-      const meta = streamDone ? { model: streamDone.model, usage: streamDone.usage, duration_ms: streamDone.duration_ms, ttft_ms: streamDone.ttft_ms } : {};
+      const meta = streamDone ? { model: streamDone.model, usage: streamDone.usage, duration_ms: streamDone.duration_ms, ttft_ms: streamDone.ttft_ms, ctx_chars: streamDone.ctx_chars } : {};
+      if (meta.usage) budgetAdd((meta.usage.prompt_tokens || 0) + (meta.usage.completion_tokens || 0));
       state.messages.push({ role: "assistant", content: finalText, tools, meta, created_at: Date.now() });
       renderMessages();
     }
@@ -3957,6 +4071,8 @@ ${body}
     { cmd: "pomo", desc: "Toggle pomodoro timer", run: togglePomodoro },
     { cmd: "party", desc: "Party mode", run: toggleParty },
     { cmd: "arena", desc: "The Arena — wrappers of the world", run: () => { ensurePanelOpen(); setPanelTab("arena"); if (window.W8) { W8.build(); W8.refreshLive(); } } },
+    { cmd: "summarize", desc: "Ask for a tight summary of this chat", run: () => { const c = $("#composer"); c.value = "Summarize this conversation in under 150 words: decisions made, open questions, and next steps."; c.dispatchEvent(new Event("input", { bubbles: true })); c.focus(); } },
+    { cmd: "budget", desc: "Show today's token usage vs budget", run: () => { const b = budgetGet(), u = budgetToday(); toast(b ? `Budget: ${u} / ${b} tokens today` : "No daily token budget set (Settings → Usage & budget)", "info"); } },
     { cmd: "confetti", desc: "Confetti!", run: () => confetti(160) },
     { cmd: "mute", desc: "Mute sounds", run: () => setMute(true) },
     { cmd: "unmute", desc: "Unmute sounds", run: () => setMute(false) },
@@ -4113,6 +4229,18 @@ ${body}
     };
     $("#btn-about").onclick = aboutModal;
   $("#model-badge").onclick = togglePinMenu;
+  $("#btn-mic").onclick = toggleMic;
+  const _bEl = $("#set-budget");
+  if (_bEl) {
+    _bEl.value = budgetGet() || "";
+    _bEl.addEventListener("input", () => {
+      const v = parseInt(_bEl.value || "0", 10);
+      localStorage.setItem("cs-token-budget", String(isNaN(v) || v < 0 ? 0 : v));
+      renderBudget();
+    });
+  }
+  renderBudget();
+  setInterval(renderBudget, 30000);
     $("#btn-pomodoro").onclick = togglePomodoro;
     $("#btn-chat-menu").onclick = (e) => { e.stopPropagation(); toggleChatMenu(); };
 
