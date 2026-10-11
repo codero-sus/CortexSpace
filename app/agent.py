@@ -107,24 +107,51 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
         messages.append({"role": "system", "content": "\n\n".join(parts)})
 
     # history (skip the just-added user message which the caller appends next)
+    hist: list[dict] = []
     for m in db.list_messages(chat_id):
         if m["role"] not in ("user", "assistant"):
             continue
         content = m["content"]
         meta = m.get("meta") or {}
         if m["role"] == "user":
-            messages.append({"role": "user", "content": content})
+            hist.append({"role": "user", "content": content})
         else:
             msg: dict = {"role": "assistant", "content": content}
             if meta.get("tool_calls"):
                 msg["tool_calls"] = meta["tool_calls"]
-            messages.append(msg)
+            hist.append(msg)
             for tr in meta.get("tool_results", []):
-                messages.append(
-                    {"role": "tool", "tool_call_id": tr["id"], "content": tr["output"][:8000]}
+                hist.append(
+                    {"role": "tool", "tool_call_id": tr["id"],
+                     "content": tr["output"], "_tr": True}
                 )
 
+    # efficiency: tool outputs are the bulky part of long chats — keep full
+    # detail only for the last two, shrink the older ones
+    _trs = [h for h in hist if h.get("_tr")]
+    _keep_full = {id(t) for t in _trs[-2:]}
+    for h in hist:
+        if h.get("_tr"):
+            h["content"] = h["content"][: 8000 if id(h) in _keep_full else 800]
+            del h["_tr"]
+
+    # efficiency: cap total history so long chats stay fast and cheap
+    HISTORY_BUDGET_CHARS = 48_000
+    _total = sum(len(h.get("content") or "") for h in hist)
+    _dropped = 0
+    while _total > HISTORY_BUDGET_CHARS and len(hist) > 2:
+        _dropped += 1
+        _total -= len(hist[0].get("content") or "")
+        hist.pop(0)
+    if _dropped:
+        messages.append({
+            "role": "system",
+            "content": f"(context management: {_dropped} oldest message(s) omitted to keep this request fast)",
+        })
+    messages.extend(hist)
+
     messages.append({"role": "user", "content": user_content})
+    ctx_chars = sum(len(x.get("content") or "") for x in messages)
 
     tool_schemas = tools.schemas()
     if not s.allow_python:
@@ -299,6 +326,7 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
             "usage": usage_total,
             "duration_ms": int((time.monotonic() - t0) * 1000),
             "ttft_ms": ttft_ms,
+            "ctx_chars": ctx_chars,
             "tool_calls": pending_tool_calls,
             "tool_results": pending_tool_results,
         }
@@ -313,6 +341,7 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
             "iterations": iterations,
             "duration_ms": int((time.monotonic() - t0) * 1000),
             "ttft_ms": ttft_ms,
+            "ctx_chars": ctx_chars,
             "model": model,
             "provider": s.provider,
         }
