@@ -386,6 +386,13 @@ team/enterprise battlegrounds, not a personal workspace's.
 Model fallback chains · scheduled agent runs · PDF/DOCX export ·
 multi-user workspaces · tab-context companion. See `data/workspace/projects/roadmap.md`.
 
+## Credits
+
+CortexSpace is built and maintained by [codero-sus](https://github.com/codero-sus) —
+see the [profile](https://github.com/codero-sus) for more projects (including
+[Cortex LLMHoster](https://github.com/codero-sus/Cortex_LLMHoster), the local
+model host this app speaks to) and the [website](https://codero.web.app).
+
 ## Privacy
 
 Everything is stored locally in `data/`. The only outbound network calls are the

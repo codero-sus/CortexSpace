@@ -706,6 +706,7 @@
   /* streaming message node */
   let streamNode = null, streamBody = null, streamMd = null, streamCaret = null, streamPending = "";
   let rafPending = false;
+  let streamSettledHtml = "", streamSettledLen = 0, streamRenderTimer = null;
   let streamStats = { tokens: 0, start: 0 };
   let streamDone = null;
 
@@ -716,6 +717,8 @@
     streamBody = el("div", { class: "assistant-body" });
     newStreamBlock();
     streamPending = "";
+    streamSettledHtml = "";
+    streamSettledLen = 0;
     streamStats = { tokens: 0, start: performance.now() };
     streamNode.append(
       el("div", { class: "assistant-head" },
@@ -732,11 +735,20 @@
 
   function renderStreamText() {
     if (!streamMd) return;
-    // rebuild: highlighted md + caret
-    const tmp = el("div");
-    tmp.innerHTML = MD.render(streamPending);
-    streamMd.innerHTML = "";
-    while (tmp.firstChild) streamMd.append(tmp.firstChild);
+    // Incremental: settle the stable prefix once; only the moving tail is re-parsed.
+    if (streamPending.length > 240 && streamPending.length - streamSettledLen > 160) {
+      const parts = streamPending.split("\n\n");
+      let acc = "", cut = -1;
+      for (let i = 0; i < parts.length - 1; i++) {
+        acc += parts[i] + "\n\n";
+        if (((acc.match(/```/g) || []).length % 2) === 0) cut = acc.length;
+      }
+      if (cut > streamSettledLen) {
+        streamSettledHtml += MD.render(streamPending.slice(streamSettledLen, cut));
+        streamSettledLen = cut;
+      }
+    }
+    streamMd.innerHTML = streamSettledHtml + MD.render(streamPending.slice(streamSettledLen));
     streamMd.append(streamCaret);
     const st = streamNode && streamNode.querySelector(".stream-stats");
     if (st && streamStats.tokens > 2) {
@@ -747,6 +759,10 @@
     streamStats.lastRendered = streamStats.tokens;
     scrollBottom();
     if (got > 0) bumpUnread(got);
+    // keep catching up while tokens keep arriving
+    if (streamNode && streamPending.length > streamSettledLen) {
+      if (!streamRenderTimer) streamRenderTimer = setTimeout(() => { streamRenderTimer = null; renderStreamText(); }, 80);
+    }
   }
 
   function newStreamBlock() {
@@ -762,10 +778,8 @@
     if (!streamMd || !streamMd.isConnected) newStreamBlock();
     streamPending += text;
     streamStats.tokens++;
-    if (!rafPending) {
-      rafPending = true;
-      requestAnimationFrame(() => { rafPending = false; renderStreamText(); });
-    }
+    // throttle: ~12 renders/s; first token renders immediately (TTFT feel)
+    if (!streamRenderTimer) streamRenderTimer = setTimeout(() => { streamRenderTimer = null; renderStreamText(); }, streamStats.tokens <= 1 ? 0 : 60);
   }
 
   function detachStreamBlock() {
@@ -973,6 +987,7 @@
     }
     localStorage.removeItem(state.chat ? "cs-draft-" + state.chat.id : "cs-draft-new");
     const df = $("#draft-flag"); if (df) df.classList.add("hidden");
+    state._wasUntitled = !!(state.chat && state.chat.title === "New chat");
     W5_STATS.msgs++; w5stat("msgs", W5_STATS.msgs);
     checkAchievements();
     renderGoal();
@@ -1048,6 +1063,7 @@
   async function afterTurn() {
     // finalize the streaming node into a stored message by re-fetching
     const hadStream = !!streamNode;
+    if (streamRenderTimer) { clearTimeout(streamRenderTimer); streamRenderTimer = null; }
     if (hadStream) {
       streamCaret && streamCaret.remove();
       const finalText = state.streamText || "";
@@ -1076,14 +1092,16 @@
         }
       } catch { /* keep live state */ }
     }
-    if (state.openFile) { /* file may have changed on disk via agent */ }
-    loadTree().catch(() => {});
+    // only re-fetch what this turn may have changed
+    if (state.activity.some((a) => a.kind === "tool")) loadTree().catch(() => {});
     loadUsage().catch(() => {});
-    loadChats().then(() => {
-      // flash the chat item if it just got auto-titled
-      const item = $$("#chat-list .chat-item").find((n) => n.querySelector(".ci-title")?.textContent === state.chat?.title);
-      if (item) { item.classList.remove("retitled"); void item.offsetWidth; item.classList.add("retitled"); }
-    }).catch(() => {});
+    if (state._wasUntitled) {
+      state._wasUntitled = false;
+      loadChats().then(() => {
+        const item = $$("#chat-list .chat-item").find((n) => n.querySelector(".ci-title")?.textContent === state.chat?.title);
+        if (item) { item.classList.remove("retitled"); void item.offsetWidth; item.classList.add("retitled"); }
+      }).catch(() => {});
+    }
     if (localStorage.getItem("cs-notify") === "1" && "Notification" in window && Notification.permission === "granted" && !document.hasFocus()) {
       try {
         new Notification("CortexSpace — done", { body: state.chat ? state.chat.title : "Your turn finished" });
@@ -3135,6 +3153,13 @@ ${body}
       ),
       el("p", { class: "about-sub", style: "margin-top:10px" }, "Wrappers, not models — that's the whole point. CortexSpace wins where wrappers actually compete: speed you can measure, models you can choose (Ollama local, OpenRouter cloud, any OpenAI-compatible), an agent you can approve action-by-action, and zero telemetry. The intelligence is the model you point it at; everything around it is built to get out of the way."),
       el("p", { class: "about-note" }, "Everything lives on this machine. Outbound calls only go where you point them."),
+      el("div", { class: "about-credits" },
+        el("span", { class: "ac-label" }, "Credits"),
+        el("span", null, "Crafted by "),
+        el("a", { href: "https://github.com/codero-sus", target: "_blank", rel: "noopener" }, "codero-sus"),
+        el("span", null, " on GitHub · "),
+        el("a", { href: "https://codero.web.app", target: "_blank", rel: "noopener" }, "codero.web.app"),
+      ),
     );
     showModal("About", body);
   }
