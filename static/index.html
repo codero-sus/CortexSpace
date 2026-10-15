@@ -113,11 +113,11 @@
         <span class="brand-name">CortexSpace</span>
         <span class="brand-sub">AI workspace</span>
       </div>
-      <button class="icon-btn" id="btn-new-chat-top" title="New chat (⌘N)"><svg><use href="#i-plus"/></svg></button>
+      <button class="icon-btn" id="btn-new-chat-top" aria-label="New chat (⌘N)" title="New chat (⌘N)"><svg><use href="#i-plus"/></svg></button>
     </div>
 
     <div class="side-section" id="sec-chats">
-      <button class="side-label head" id="sec-chats-head" title="Collapse section">
+      <button class="side-label head" id="sec-chats-head" aria-label="Collapse section" title="Collapse section">
         <span>Chats</span><svg class="sec-chev"><use href="#i-chev-d"/></svg>
       </button>
       <div class="sec-body">
@@ -131,14 +131,14 @@
 
     <div class="side-section grow" id="sec-workspace">
       <div class="side-row">
-        <button class="side-label head" id="sec-workspace-head" title="Collapse section">
+        <button class="side-label head" id="sec-workspace-head" aria-label="Collapse section" title="Collapse section">
           <span>Workspace</span><svg class="sec-chev"><use href="#i-chev-d"/></svg>
         </button>
         <span class="side-act-group">
-          <button class="icon-btn sm" id="btn-tree-collapse" title="Collapse all folders" style="display:none"><svg><use href="#i-collapse"/></svg></button>
-          <button class="icon-btn sm" id="btn-tree-expand" title="Expand all folders" style="display:none"><svg><use href="#i-expand"/></svg></button>
-          <button class="icon-btn sm" id="btn-new-folder" title="New folder"><svg><use href="#i-folder"/></svg></button>
-          <button class="icon-btn sm" id="btn-new-note" title="New note"><svg><use href="#i-file"/></svg></button>
+          <button class="icon-btn sm" id="btn-tree-collapse" aria-label="Collapse all folders" title="Collapse all folders" style="display:none"><svg><use href="#i-collapse"/></svg></button>
+          <button class="icon-btn sm" id="btn-tree-expand" aria-label="Expand all folders" title="Expand all folders" style="display:none"><svg><use href="#i-expand"/></svg></button>
+          <button class="icon-btn sm" id="btn-new-folder" aria-label="New folder" title="New folder"><svg><use href="#i-folder"/></svg></button>
+          <button class="icon-btn sm" id="btn-new-note" aria-label="New note" title="New note"><svg><use href="#i-file"/></svg></button>
         </span>
       </div>
       <div class="sec-body grow">
@@ -152,34 +152,34 @@
             <option value="size">Size</option>
             <option value="mtime">Modified</option>
           </select>
-          <button class="icon-btn sm" id="btn-tree-favs" title="Show favorites only"><svg><use href="#i-star"/></svg></button>
+          <button class="icon-btn sm" id="btn-tree-favs" aria-label="Show favorites only" title="Show favorites only"><svg><use href="#i-star"/></svg></button>
         </div>
         <div id="file-tree" class="file-tree stagger"></div>
       </div>
     </div>
 
     <div class="side-lib">
-      <button class="side-lib-btn" id="btn-templates" title="Note templates"><svg><use href="#i-layers"/></svg>Templates</button>
-      <button class="side-lib-btn" id="btn-prompt-lib" title="Prompt library"><svg><use href="#i-wand"/></svg>Prompts</button>
+      <button class="side-lib-btn" id="btn-templates" aria-label="Note templates" title="Note templates"><svg><use href="#i-layers"/></svg>Templates</button>
+      <button class="side-lib-btn" id="btn-prompt-lib" aria-label="Prompt library" title="Prompt library"><svg><use href="#i-wand"/></svg>Prompts</button>
     </div>
 
     <div class="side-foot">
       <div id="streak-goal" class="streak-goal">
-        <button class="streak-flame" id="streak-flame" title="Usage streak — open Insights"><svg><use href="#i-flame"/></svg><span id="streak-num">–</span></button>
-        <button class="goal-ring" id="goal-ring" title="Daily goal — click to set"><span id="goal-bar"></span><span class="goal-txt" id="goal-txt">goal</span></button>
+        <button class="streak-flame" id="streak-flame" aria-label="Usage streak — open Insights" title="Usage streak — open Insights"><svg><use href="#i-flame"/></svg><span id="streak-num">–</span></button>
+        <button class="goal-ring" id="goal-ring" aria-label="Daily goal — click to set" title="Daily goal — click to set"><span id="goal-bar"></span><span class="goal-txt" id="goal-txt">goal</span></button>
         <span class="side-quote" id="side-quote" title="Quote of the day"></span>
       </div>
       <div id="ws-usage" class="ws-usage" title="Workspace usage">
         <svg class="wu-ic"><use href="#i-folder"/></svg>
         <span id="ws-usage-text">…</span>
-        <button class="icon-btn sm wu-dl" id="btn-dl-ws" title="Download workspace as .zip"><svg><use href="#i-download"/></svg></button>
+        <button class="icon-btn sm wu-dl" id="btn-dl-ws" aria-label="Download workspace as .zip" title="Download workspace as .zip"><svg><use href="#i-download"/></svg></button>
       </div>
-      <button id="provider-chip" class="provider-chip" title="Open settings">
+      <button id="provider-chip" aria-label="Open settings" class="provider-chip" title="Open settings">
         <span class="dot" id="provider-dot"></span>
         <span class="provider-name" id="provider-label">…</span>
         <svg class="pc-chev"><use href="#i-chev-r"/></svg>
       </button>
-      <button class="icon-btn sm" id="btn-theme" title="Toggle theme (⌘.)"><svg><use href="#i-moon"/></svg></button>
+      <button class="icon-btn sm" id="btn-theme" aria-label="Toggle theme (⌘.)" title="Toggle theme (⌘.)"><svg><use href="#i-moon"/></svg></button>
     </div>
   </aside>
 
@@ -190,30 +190,30 @@
     <!-- chat view -->
     <section id="view-chat" class="view">
       <header class="topbar">
-        <button class="icon-btn" id="btn-sidebar-toggle" title="Toggle sidebar (⌘B)"><svg><use href="#i-sidebar"/></svg></button>
+        <button class="icon-btn" id="btn-sidebar-toggle" aria-label="Toggle sidebar (⌘B)" title="Toggle sidebar (⌘B)"><svg><use href="#i-sidebar"/></svg></button>
         <div class="chat-title-wrap">
           <input id="chat-title" class="chat-title" value="New chat" spellcheck="false">
         </div>
         <div class="topbar-right">
           <span class="conn-ind" id="conn-ind" title="Connection"><svg><use href="#i-wifi"/></svg></span>
-          <button class="icon-btn" id="btn-global-search" title="Search everything (⌘F)"><svg><use href="#i-search"/></svg></button>
+          <button class="icon-btn" id="btn-global-search" aria-label="Search everything (⌘F)" title="Search everything (⌘F)"><svg><use href="#i-search"/></svg></button>
           <span class="badge" id="model-badge" title="Active model"><svg class="b-ic"><use href="#i-zap"/></svg><span id="model-badge-text">—</span></span>
           <span class="tb-sep" aria-hidden="true"></span>
-          <button class="icon-btn" id="btn-zoom-out" title="Zoom out (⌘−)"><svg><use href="#i-zoom-out"/></svg></button>
-          <button class="icon-btn" id="btn-zoom-in" title="Zoom in (⌘+)"><svg><use href="#i-zoom-in"/></svg></button>
-          <button class="icon-btn" id="btn-pomodoro" title="Pomodoro timer (P)"><svg><use href="#i-timer"/></svg><span id="pomo-badge" class="pomo-badge hidden"></span></button>
-          <button class="icon-btn" id="btn-mute" title="Mute sounds"><svg><use href="#i-volume-x"/></svg></button>
-          <button class="icon-btn" id="btn-dnd" title="Do not disturb — hide toasts"><svg><use href="#i-shield"/></svg></button>
-          <button class="icon-btn" id="btn-export-chat" title="Export chat as Markdown (⌘E)" disabled><svg><use href="#i-download"/></svg></button>
-          <button class="icon-btn" id="btn-chat-menu" title="Chat menu"><svg><use href="#i-more"/></svg></button>
-          <button class="icon-btn" id="btn-focus" title="Focus mode (⌘\)"><svg><use href="#i-focus"/></svg></button>
-          <button class="icon-btn" id="btn-about" title="About CortexSpace"><svg><use href="#i-info"/></svg></button>
-          <button class="icon-btn" id="btn-panel-toggle" title="Toggle panel (⌘J)"><svg><use href="#i-panel"/></svg></button>
+          <button class="icon-btn" id="btn-zoom-out" aria-label="Zoom out (⌘−)" title="Zoom out (⌘−)"><svg><use href="#i-zoom-out"/></svg></button>
+          <button class="icon-btn" id="btn-zoom-in" aria-label="Zoom in (⌘+)" title="Zoom in (⌘+)"><svg><use href="#i-zoom-in"/></svg></button>
+          <button class="icon-btn" id="btn-pomodoro" aria-label="Pomodoro timer (P)" title="Pomodoro timer (P)"><svg><use href="#i-timer"/></svg><span id="pomo-badge" class="pomo-badge hidden"></span></button>
+          <button class="icon-btn" id="btn-mute" aria-label="Mute sounds" title="Mute sounds"><svg><use href="#i-volume-x"/></svg></button>
+          <button class="icon-btn" id="btn-dnd" aria-label="Do not disturb — hide toasts" title="Do not disturb — hide toasts"><svg><use href="#i-shield"/></svg></button>
+          <button class="icon-btn" id="btn-export-chat" aria-label="Export chat as Markdown (⌘E)" title="Export chat as Markdown (⌘E)" disabled><svg><use href="#i-download"/></svg></button>
+          <button class="icon-btn" id="btn-chat-menu" aria-label="Chat menu" title="Chat menu"><svg><use href="#i-more"/></svg></button>
+          <button class="icon-btn" id="btn-focus" aria-label="Focus mode (⌘\)" title="Focus mode (⌘\)"><svg><use href="#i-focus"/></svg></button>
+          <button class="icon-btn" id="btn-about" aria-label="About CortexSpace" title="About CortexSpace"><svg><use href="#i-info"/></svg></button>
+          <button class="icon-btn" id="btn-panel-toggle" aria-label="Toggle panel (⌘J)" title="Toggle panel (⌘J)"><svg><use href="#i-panel"/></svg></button>
         </div>
       </header>
 
       <div id="messages" class="messages" data-empty="true">
-        <button id="jump-btn" class="jump-btn hidden" title="Jump to latest">
+        <button id="jump-btn" aria-label="Jump to latest" class="jump-btn hidden" title="Jump to latest">
           <svg><use href="#i-chev-d"/></svg><span id="jump-count"></span>
         </button>
         <div id="empty-state" class="empty-state">
@@ -240,18 +240,18 @@
         </div>
         <div id="context-chips" class="context-chips"></div>
         <div class="composer" id="composer-box">
-          <textarea id="composer" rows="1" placeholder="Ask anything…  ( @ to attach a file, / for commands )" spellcheck="false"></textarea>
+          <textarea id="composer" rows="1" aria-label="Message composer" placeholder="Ask anything…  ( @ to attach a file, / for commands )" spellcheck="false"></textarea>
           <div class="composer-bar">
             <div class="composer-left">
-              <button class="chip-btn" id="btn-attach" title="Attach a workspace file"><svg><use href="#i-file"/></svg>Attach</button>
-              <button class="chip-btn ghost" id="btn-mic" title="Dictate (voice input)"><svg><use href="#i-mic"/></svg>Dictate</button>
-              <button class="chip-btn ghost" id="btn-clear-composer" title="Clear composer (⌘W)"><svg><use href="#i-x"/></svg>Clear</button>
+              <button class="chip-btn" id="btn-attach" aria-label="Attach a workspace file" title="Attach a workspace file"><svg><use href="#i-file"/></svg>Attach</button>
+              <button class="chip-btn ghost" id="btn-mic" aria-label="Dictate (voice input)" title="Dictate (voice input)"><svg><use href="#i-mic"/></svg>Dictate</button>
+              <button class="chip-btn ghost" id="btn-clear-composer" aria-label="Clear composer (⌘W)" title="Clear composer (⌘W)"><svg><use href="#i-x"/></svg>Clear</button>
               <span class="composer-hint" id="composer-hint">Enter to send · Shift+Enter for a new line</span>
             </div>
             <div class="composer-right">
               <span class="comp-counts" id="comp-counts"></span>
               <span class="draft-flag hidden" id="draft-flag">draft saved</span>
-              <button id="btn-send" class="send-btn" disabled title="Send (Enter)">
+              <button id="btn-send" aria-label="Send (Enter)" class="send-btn" disabled title="Send (Enter)">
                 <svg class="send-ic"><use href="#i-send"/></svg>
                 <svg class="stop-ic"><use href="#i-stop"/></svg>
               </button>
@@ -269,7 +269,7 @@
     <!-- settings view -->
     <section id="view-settings" class="view hidden">
       <header class="topbar">
-        <button class="icon-btn" id="btn-settings-back" title="Back to chat"><svg><use href="#i-chev-r" style="transform:rotate(180deg)"/></svg></button>
+        <button class="icon-btn" id="btn-settings-back" aria-label="Back to chat" title="Back to chat"><svg><use href="#i-chev-r" style="transform:rotate(180deg)"/></svg></button>
         <div class="chat-title-wrap"><span class="chat-title static">Settings</span></div>
       </header>
       <div class="settings-scroll">
@@ -567,8 +567,8 @@
       <button class="ptab" data-tab="browser"><svg><use href="#i-globe"/></svg>Browser</button>
       <button class="ptab" data-tab="activity"><svg><use href="#i-activity"/></svg>Activity <span class="count-badge hidden" id="activity-count"></span></button>
       <button class="ptab" data-tab="insights"><svg><use href="#i-chart"/></svg>Insights</button>
-      <button class="ptab" data-tab="arena" title="Wrappers of the world — ⌘⇧A"><svg><use href="#i-spark"/></svg>Arena</button>
-      <button class="icon-btn sm panel-close" id="btn-panel-close" title="Close panel (⌘J)"><svg><use href="#i-x"/></svg></button>
+      <button aria-label="Wrappers of the world — ⌘⇧A" class="ptab" data-tab="arena" title="Wrappers of the world — ⌘⇧A"><svg><use href="#i-spark"/></svg>Arena</button>
+      <button class="icon-btn sm panel-close" id="btn-panel-close" aria-label="Close panel (⌘J)" title="Close panel (⌘J)"><svg><use href="#i-x"/></svg></button>
     </div>
 
     <div class="panel-body" id="panel-file">
@@ -576,21 +576,21 @@
         <span class="panel-path" id="file-path">No file open</span>
         <span class="dirty-dot" id="dirty-dot" title="Unsaved changes" hidden></span>
         <div class="panel-tools">
-          <button class="icon-btn sm" id="btn-file-history" title="Version history"><svg><use href="#i-clock"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-view" title="Toggle preview / source"><svg><use href="#i-eye"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-find" title="Find in file (⌘⇧F)"><svg><use href="#i-find"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-goto" title="Go to line"><svg><use href="#i-target"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-wrap" title="Toggle word wrap (F)"><svg><use href="#i-wrap"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-ffs-up" title="Bigger editor font"><span class="txt-ic">A+</span></button>
-          <button class="icon-btn sm" id="btn-file-ffs-down" title="Smaller editor font"><span class="txt-ic">A−</span></button>
-          <button class="icon-btn sm" id="btn-file-discard" title="Discard changes (reload from disk)"><svg><use href="#i-restore"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-lock" title="Toggle read-only"><svg><use href="#i-lock"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-dup" title="Duplicate file (⌘D)"><svg><use href="#i-copy"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-move" title="Move to folder…"><svg><use href="#i-move"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-download" title="Download"><svg><use href="#i-download"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-copy" title="Copy contents"><svg><use href="#i-copy"/></svg></button>
-          <button class="icon-btn sm" id="btn-file-toc" title="Table of contents (markdown)"><svg><use href="#i-list"/></svg></button>
-          <button class="icon-btn sm danger" id="btn-file-delete" title="Delete file"><svg><use href="#i-trash"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-history" aria-label="Version history" title="Version history"><svg><use href="#i-clock"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-view" aria-label="Toggle preview / source" title="Toggle preview / source"><svg><use href="#i-eye"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-find" aria-label="Find in file (⌘⇧F)" title="Find in file (⌘⇧F)"><svg><use href="#i-find"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-goto" aria-label="Go to line" title="Go to line"><svg><use href="#i-target"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-wrap" aria-label="Toggle word wrap (F)" title="Toggle word wrap (F)"><svg><use href="#i-wrap"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-ffs-up" aria-label="Bigger editor font" title="Bigger editor font"><span class="txt-ic">A+</span></button>
+          <button class="icon-btn sm" id="btn-file-ffs-down" aria-label="Smaller editor font" title="Smaller editor font"><span class="txt-ic">A−</span></button>
+          <button class="icon-btn sm" id="btn-file-discard" aria-label="Discard changes (reload from disk)" title="Discard changes (reload from disk)"><svg><use href="#i-restore"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-lock" aria-label="Toggle read-only" title="Toggle read-only"><svg><use href="#i-lock"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-dup" aria-label="Duplicate file (⌘D)" title="Duplicate file (⌘D)"><svg><use href="#i-copy"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-move" aria-label="Move to folder…" title="Move to folder…"><svg><use href="#i-move"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-download" aria-label="Download" title="Download"><svg><use href="#i-download"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-copy" aria-label="Copy contents" title="Copy contents"><svg><use href="#i-copy"/></svg></button>
+          <button class="icon-btn sm" id="btn-file-toc" aria-label="Table of contents (markdown)" title="Table of contents (markdown)"><svg><use href="#i-list"/></svg></button>
+          <button class="icon-btn sm danger" id="btn-file-delete" aria-label="Delete file" title="Delete file"><svg><use href="#i-trash"/></svg></button>
         </div>
       </div>
       <div id="file-find-bar" class="find-bar hidden">
@@ -598,9 +598,9 @@
         <label class="find-opt" title="Match case"><input type="checkbox" id="find-case"><span>Aa</span></label>
         <label class="find-opt" title="Whole word"><input type="checkbox" id="find-word"><span>\b</span></label>
         <span id="find-count" class="find-count"></span>
-        <button class="icon-btn sm" id="find-prev" title="Previous match">↑</button>
-        <button class="icon-btn sm" id="find-next" title="Next match">↓</button>
-        <button class="icon-btn sm" id="find-close" title="Close (Esc)"><svg><use href="#i-x"/></svg></button>
+        <button class="icon-btn sm" id="find-prev" aria-label="Previous match" title="Previous match">↑</button>
+        <button class="icon-btn sm" id="find-next" aria-label="Next match" title="Next match">↓</button>
+        <button class="icon-btn sm" id="find-close" aria-label="Close (Esc)" title="Close (Esc)"><svg><use href="#i-x"/></svg></button>
       </div>
       <div id="file-content" class="file-content">
         <div class="panel-empty">
@@ -610,7 +610,7 @@
         </div>
       </div>
       <div class="panel-toolbar bottom">
-        <button id="btn-file-send" class="chip-btn" title="Add this file as chat context"><svg><use href="#i-chat"/></svg>Add to chat</button>
+        <button id="btn-file-send" aria-label="Add this file as chat context" class="chip-btn" title="Add this file as chat context"><svg><use href="#i-chat"/></svg>Add to chat</button>
         <span class="file-stats" id="file-stats"></span>
         <span class="file-cursor" id="file-cursor"></span>
         <button id="btn-file-save" class="btn primary sm" disabled>Save ⌘S</button>
@@ -620,17 +620,17 @@
     <div class="panel-body hidden" id="panel-browser">
       <div class="panel-toolbar">
         <div class="url-bar">
-          <button class="icon-btn sm" id="btn-b-back" title="Back" disabled><svg><use href="#i-chev-r" style="transform:rotate(180deg)"/></svg></button>
-          <button class="icon-btn sm" id="btn-b-fwd" title="Forward" disabled><svg><use href="#i-chev-r"/></svg></button>
-          <button class="icon-btn sm" id="btn-b-reload" title="Reload"><svg><use href="#i-refresh"/></svg></button>
-          <button class="icon-btn sm" id="btn-b-home" title="Home"><svg><use href="#i-globe"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-back" aria-label="Back" title="Back" disabled><svg><use href="#i-chev-r" style="transform:rotate(180deg)"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-fwd" aria-label="Forward" title="Forward" disabled><svg><use href="#i-chev-r"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-reload" aria-label="Reload" title="Reload"><svg><use href="#i-refresh"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-home" aria-label="Home" title="Home"><svg><use href="#i-globe"/></svg></button>
           <svg class="url-ic"><use href="#i-globe"/></svg>
           <input id="browser-url" type="text" placeholder="https://example.com" spellcheck="false">
-          <button class="icon-btn sm" id="btn-b-history" title="Visit history"><svg><use href="#i-history"/></svg></button>
-          <button class="icon-btn sm" id="btn-b-extern" title="Open in new tab"><svg><use href="#i-external"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-history" aria-label="Visit history" title="Visit history"><svg><use href="#i-history"/></svg></button>
+          <button class="icon-btn sm" id="btn-b-extern" aria-label="Open in new tab" title="Open in new tab"><svg><use href="#i-external"/></svg></button>
         </div>
-        <button class="icon-btn sm" id="btn-bookmarks" title="Bookmarks"><svg><use href="#i-star"/></svg></button>
-        <button class="icon-btn sm" id="btn-browser-go" title="Load"><svg><use href="#i-send"/></svg></button>
+        <button class="icon-btn sm" id="btn-bookmarks" aria-label="Bookmarks" title="Bookmarks"><svg><use href="#i-star"/></svg></button>
+        <button class="icon-btn sm" id="btn-browser-go" aria-label="Load" title="Load"><svg><use href="#i-send"/></svg></button>
       </div>
       <div id="bookmark-pop" class="popover hidden">
         <div class="popover-head">Bookmarks <span class="bm-count" id="bm-count"></span></div>
@@ -648,7 +648,7 @@
         <iframe id="browser-frame" class="browser-frame" title="Page preview" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
       </div>
       <div class="panel-toolbar bottom">
-        <button id="btn-browser-chat" class="chip-btn" disabled title="Fetch page text and add to chat context"><svg><use href="#i-chat"/></svg>Add page to chat</button>
+        <button id="btn-browser-chat" aria-label="Fetch page text and add to chat context" class="chip-btn" disabled title="Fetch page text and add to chat context"><svg><use href="#i-chat"/></svg>Add page to chat</button>
         <span id="browser-status" class="browser-status"></span>
       </div>
     </div>
@@ -658,7 +658,7 @@
         <button class="fchip active" data-f="all">All</button>
         <button class="fchip" data-f="tools">Tools</button>
         <button class="fchip" data-f="approvals">Approvals</button>
-        <button class="fchip clear" data-f="clear" title="Clear feed">Clear</button>
+        <button aria-label="Clear feed" class="fchip clear" data-f="clear" title="Clear feed">Clear</button>
       </div>
       <div id="activity-list" class="activity-list">
         <div class="panel-empty">
@@ -672,8 +672,8 @@
       <div class="ins-head-row">
         <span class="ins-head-title">Usage insights</span>
         <span class="ins-streak" id="ins-streak" title="Consecutive days with activity"><svg><use href="#i-flame"/></svg><span id="ins-streak-num">–</span> day streak</span>
-        <button class="btn ghost sm" id="btn-ins-csv" title="Download stats as CSV"><svg><use href="#i-download"/></svg>CSV</button>
-        <button class="btn ghost sm" id="btn-ins-refresh" title="Refresh insights"><svg><use href="#i-refresh"/></svg></button>
+        <button class="btn ghost sm" id="btn-ins-csv" aria-label="Download stats as CSV" title="Download stats as CSV"><svg><use href="#i-download"/></svg>CSV</button>
+        <button class="btn ghost sm" id="btn-ins-refresh" aria-label="Refresh insights" title="Refresh insights"><svg><use href="#i-refresh"/></svg></button>
       </div>
       <div class="ins-grid">
         <div class="ins-card"><span class="ins-num" id="ins-chats">–</span><span class="ins-lbl">chats</span></div>
@@ -735,11 +735,12 @@
   <div class="popover-list">
     <div class="pop-item" id="exp-md"><svg><use href="#i-download"/></svg>Markdown (.md)</div>
     <div class="pop-item" id="exp-html"><svg><use href="#i-code"/></svg>HTML page (.html)</div>
+    <div class="pop-item" id="exp-link"><svg><use href="#i-external"/></svg>Copy chat link</div>
   </div>
 </div>
 
 <!-- slash-command menu -->
-<div id="slash-menu" class="popover hidden">
+<div id="slash-menu" class="popover hidden" role="dialog" aria-modal="true">
   <div class="popover-head">Commands <span class="sl-hint">/then space to run</span></div>
   <div id="slash-list" class="popover-list"></div>
 </div>
@@ -751,11 +752,11 @@
 </div>
 
 <!-- keyboard shortcuts overlay -->
-<div id="shortcuts" class="shortcuts hidden">
+<div id="shortcuts" class="shortcuts hidden" role="dialog" aria-modal="true">
   <div class="shortcuts-box">
     <div class="modal-head">
       <span>Keyboard shortcuts</span>
-      <button class="icon-btn" id="shortcuts-x" title="Close"><svg><use href="#i-x"/></svg></button>
+      <button class="icon-btn" id="shortcuts-x" aria-label="Close" title="Close"><svg><use href="#i-x"/></svg></button>
     </div>
     <div class="sc-grid">
       <div class="sc-col"><h4>General</h4>
@@ -811,7 +812,7 @@
 </div>
 
 <!-- onboarding tour -->
-<div id="tour" class="tour hidden">
+<div id="tour" class="tour hidden" role="dialog" aria-modal="true">
   <div id="tour-card" class="tour-card">
     <div class="tour-step"><span id="tour-num">1/5</span></div>
     <h4 id="tour-title">Welcome to CortexSpace</h4>
@@ -824,7 +825,7 @@
 </div>
 
 <!-- command palette -->
-<div id="palette" class="palette hidden">
+<div id="palette" class="palette hidden" role="dialog" aria-modal="true">
   <div class="palette-box">
     <div class="palette-head">
       <svg class="p-ic"><use href="#i-search"/></svg>
@@ -839,18 +840,18 @@
 </div>
 
 <!-- modal -->
-<div id="modal" class="modal hidden">
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
   <div class="modal-box">
     <div class="modal-head">
       <span id="modal-title">…</span>
-      <button class="icon-btn sm" id="modal-x" title="Close"><svg><use href="#i-x"/></svg></button>
+      <button class="icon-btn sm" id="modal-x" aria-label="Close" title="Close"><svg><use href="#i-x"/></svg></button>
     </div>
     <div id="modal-body"></div>
   </div>
 </div>
 
 <!-- global search overlay -->
-<div id="search-overlay" class="palette hidden">
+<div id="search-overlay" class="palette hidden" role="dialog" aria-modal="true">
   <div class="palette-box search-box">
     <div class="palette-head">
       <svg class="p-ic"><use href="#i-search"/></svg>
@@ -917,7 +918,7 @@
     <button class="btn primary sm" id="pomo-start">Start</button>
     <button class="btn ghost sm" id="pomo-reset">Reset</button>
     <button class="btn ghost sm" id="pomo-skip">Skip</button>
-    <button class="icon-btn sm" id="pomo-close" title="Close"><svg><use href="#i-x"/></svg></button>
+    <button class="icon-btn sm" id="pomo-close" aria-label="Close" title="Close"><svg><use href="#i-x"/></svg></button>
   </div>
 </div>
 
@@ -929,10 +930,10 @@
 
 <!-- toast history drawer -->
 <div id="toast-history" class="toast-history hidden">
-  <div class="th-head">Recent notifications <button class="icon-btn sm" id="th-clear" title="Clear"><svg><use href="#i-trash"/></svg></button></div>
+  <div class="th-head">Recent notifications <button class="icon-btn sm" id="th-clear" aria-label="Clear" title="Clear"><svg><use href="#i-trash"/></svg></button></div>
   <div id="th-list" class="th-list"></div>
 </div>
-<button id="btn-toast-history" class="th-fab" title="Notification history"><svg><use href="#i-history"/></svg></button>
+<button id="btn-toast-history" aria-label="Notification history" class="th-fab" title="Notification history"><svg><use href="#i-history"/></svg></button>
 
 <!-- confetti canvas -->
 <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
@@ -943,11 +944,11 @@
   <span class="made-by">by <a href="https://github.com/codero-sus" target="_blank" rel="noopener">codero-sus</a><span class="mb-dot">·</span><a href="https://codero.web.app" target="_blank" rel="noopener">codero.web.app</a></span>
   <span id="online-dot" class="online-dot" title="Server connection"></span>
   <button class="btn ghost sm" id="btn-install" hidden>Install app</button>
-  <button class="link-btn" id="btn-dev" title="Developer tools">dev</button>
+  <button class="link-btn" id="btn-dev" aria-label="Developer tools" title="Developer tools">dev</button>
 </div>
 
 <!-- toasts -->
-<div id="toasts" class="toasts"></div>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
 <script src="/static/js/md.js"></script>
 <script src="/static/js/app.js"></script>

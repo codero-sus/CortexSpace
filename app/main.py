@@ -11,6 +11,8 @@ import re
 import shutil
 import sys
 import time
+
+START_TIME = time.time()
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -73,6 +75,15 @@ app.add_middleware(
 import re as _re  # noqa: E402
 
 _STATIC_CACHE_RE = _re.compile(r"^/static/.*\.(?:js|css|json|ico|png|svg|woff2?)$")
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    return resp
 
 
 @app.middleware("http")
@@ -207,6 +218,9 @@ async def health():
         "model": s.provider_model(),
         "workspace": WORKSPACE_DIR,
         "time_ms": now_ms(),
+        "uptime_s": int(time.time() - START_TIME),
+        "pid": os.getpid(),
+        "fts": True,
     }
 
 
@@ -602,6 +616,7 @@ async def about():
             "total": db_size + ws_size + versions_size,
         },
         "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "credits": {"name": "codero-sus", "github": "https://github.com/codero-sus", "web": "https://codero.web.app"},
     }
 
 

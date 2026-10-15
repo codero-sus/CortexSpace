@@ -30,6 +30,7 @@
       else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
       else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v);
     }
+    if (e.hasAttribute("title") && !e.hasAttribute("aria-label")) e.setAttribute("aria-label", e.getAttribute("title"));
     for (const kid of kids.flat()) {
       if (kid == null || kid === false) continue;
       e.append(kid.nodeType ? kid : document.createTextNode(kid));
@@ -497,6 +498,16 @@
         onclick: () => speakText(m.content),
       }, ico("#i-volume"), "Read"));
       actions.append(el("button", {
+        class: "ma-btn", title: "Reuse this text in the composer",
+        onclick: () => {
+          const c = $("#composer");
+          c.value = m.content;
+          c.dispatchEvent(new Event("input", { bubbles: true }));
+          autosize(c);
+          c.focus();
+        },
+      }, ico("#i-wand"), "Reuse"));
+      actions.append(el("button", {
         class: "ma-btn", title: "Fork a new chat from this point",
         onclick: () => forkChatFrom(m.id),
       }, ico("#i-fork"), "Fork here"));
@@ -510,6 +521,9 @@
     return actions;
   }
 
+  function stopSpeaking() {
+    if ("speechSynthesis" in window) { speechSynthesis.cancel(); toast("Stopped reading"); }
+  }
   function speakText(content) {
     if (!(window.speechSynthesis)) return toast("Speech not supported in this browser", "warn");
     const t = (content || "").replace(/[#*`>_[\]{}|]/g, " ").replace(/\s+/g, " ").trim();
@@ -663,7 +677,7 @@
     if (outT) bits.push(outT + " out");
     if (secs && outT) bits.push(Math.round(outT / secs) + " tok/s");
     if (secs) bits.push(secs.toFixed(1) + "s");
-    if (meta.ctx_chars) bits.push("ctx " + (meta.ctx_chars >= 1000 ? (meta.ctx_chars / 1000).toFixed(1) + "k" : meta.ctx_chars));
+    if (meta.ctx_chars && pref("showCtx")) bits.push("ctx " + (meta.ctx_chars >= 1000 ? (meta.ctx_chars / 1000).toFixed(1) + "k" : meta.ctx_chars));
     return bits.join(" · ");
   }
 
@@ -751,7 +765,7 @@
     streamMd.innerHTML = streamSettledHtml + MD.render(streamPending.slice(streamSettledLen));
     streamMd.append(streamCaret);
     const st = streamNode && streamNode.querySelector(".stream-stats");
-    if (st && streamStats.tokens > 2) {
+    if (st && pref("showTok") && streamStats.tokens > 2) {
       const secs = (performance.now() - streamStats.start) / 1000;
       st.textContent = Math.round(streamStats.tokens / Math.max(secs, 0.5)) + " tok/s · " + streamStats.tokens + " tok";
     }
@@ -779,7 +793,7 @@
     streamPending += text;
     streamStats.tokens++;
     // throttle: ~12 renders/s; first token renders immediately (TTFT feel)
-    if (!streamRenderTimer) streamRenderTimer = setTimeout(() => { streamRenderTimer = null; renderStreamText(); }, streamStats.tokens <= 1 ? 0 : 60);
+    if (!streamRenderTimer) streamRenderTimer = setTimeout(() => { streamRenderTimer = null; renderStreamText(); }, streamStats.tokens <= 1 ? 0 : ({ slow: 120, normal: 60, fast: 30 }[pref("streamSpeed")] || 60));
   }
 
   function detachStreamBlock() {
@@ -950,7 +964,7 @@
   function scrollBottom(force) {
     const box = $("#messages");
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
-    if (force || nearBottom) box.scrollTop = box.scrollHeight;
+    if (force || (pref("stickBottom") && nearBottom)) box.scrollTop = box.scrollHeight;
     state.nearBottom = nearBottom;
     updateJumpBtn(nearBottom);
   }
@@ -1052,6 +1066,12 @@
             break;
         }
       }, state.controller.signal);
+      if (!streamDone && !state.controller.signal.aborted) {
+        toast("Stream ended early — the reply may be incomplete", "warn", 9000, {
+          label: "Resend",
+          fn: () => doSend(text, myContext),
+        });
+      }
     } catch (e) {
       if (e.name !== "AbortError") toast(e.message, "err");
     } finally {
@@ -1110,8 +1130,11 @@
     $("#composer").focus();
   }
 
+  const _streamGuard = (e) => { e.preventDefault(); e.returnValue = ""; };
   function setStreaming(on) {
     state.streaming = on;
+    if (on) window.addEventListener("beforeunload", _streamGuard);
+    else window.removeEventListener("beforeunload", _streamGuard);
     const btn = $("#btn-send");
     btn.classList.toggle("streaming", on);
     btn.disabled = on ? false : !$("#composer").value.trim();
@@ -1735,6 +1758,16 @@
 
   /* ---------------- chat export ---------------- */
 
+  function copyChatLink() {
+    if (!state.chat) return toast("No open chat", "warn");
+    const url = location.origin + "/?chat=" + state.chat.id;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(
+        () => toast("Chat link copied — anyone on this server can open it"),
+        () => toast(url, "info", 8000),
+      );
+    } else toast(url, "info", 8000);
+  }
   async function exportChat() {
     if (!state.chat) return;
     try {
@@ -2416,6 +2449,7 @@ ${body}
     $("#btn-export-chat").onclick = openExportPop;
     $("#exp-md").onclick = () => { $("#export-pop").classList.add("hidden"); exportChat(); };
     $("#exp-html").onclick = () => { $("#export-pop").classList.add("hidden"); exportChatHTML(); };
+    $("#exp-link").onclick = () => { $("#export-pop").classList.add("hidden"); copyChatLink(); };
     $("#btn-file-history").onclick = openHistory;
     $("#shortcuts-x").onclick = closeShortcuts;
     $("#shortcuts").addEventListener("click", (e) => { if (e.target.id === "shortcuts") closeShortcuts(); });
@@ -2746,11 +2780,22 @@ ${body}
     { key: "night", label: "Night schedule (auto dark)", type: "toggle", def: false },
     { key: "nightFrom", label: "Night from", type: "time", def: "21:00" },
     { key: "nightTo", label: "Night to", type: "time", def: "07:00" },
+    { key: "streamSpeed", label: "Streaming render speed", type: "seg", options: [["slow", "Calm"], ["normal", "Smooth"], ["fast", "Snappy"]], def: "normal" },
+    { key: "showTok", label: "Live token stats", type: "toggle", def: true },
+    { key: "showCtx", label: "Context size under replies", type: "toggle", def: true },
+    { key: "stickBottom", label: "Auto-scroll to new tokens", type: "toggle", def: true },
   ];
   let PREFS = {};
   try { PREFS = JSON.parse(localStorage.getItem("cs-prefs") || "{}"); } catch { PREFS = {}; }
+  let _quotaWarned = false;
+  function lsSet(k, v) {
+    try { localStorage.setItem(k, v); }
+    catch {
+      if (!_quotaWarned) { _quotaWarned = true; toast("Local storage is full — some changes may not persist", "warn", 8000); }
+    }
+  }
   const pref = (k) => (PREFS[k] !== undefined ? PREFS[k] : (PREF_DEFS.find((d) => d.key === k) || { def: undefined }).def);
-  function setPref(k, v) { PREFS[k] = v; localStorage.setItem("cs-prefs", JSON.stringify(PREFS)); applyPrefs(); }
+  function setPref(k, v) { PREFS[k] = v; lsSet("cs-prefs", JSON.stringify(PREFS)); applyPrefs(); }
   function applyPrefs() {
     const root = document.documentElement;
     for (const d of PREF_DEFS) {
@@ -4097,6 +4142,7 @@ ${body}
     { cmd: "party", desc: "Party mode", run: toggleParty },
     { cmd: "arena", desc: "The Arena — wrappers of the world", run: () => { ensurePanelOpen(); setPanelTab("arena"); if (window.W8) { W8.build(); W8.refreshLive(); } } },
     { cmd: "summarize", desc: "Ask for a tight summary of this chat", run: () => { const c = $("#composer"); c.value = "Summarize this conversation in under 150 words: decisions made, open questions, and next steps."; c.dispatchEvent(new Event("input", { bubbles: true })); c.focus(); } },
+    { cmd: "share", desc: "Copy a link to this chat", run: copyChatLink },
     { cmd: "budget", desc: "Show today's token usage vs budget", run: () => { const b = budgetGet(), u = budgetToday(); toast(b ? `Budget: ${u} / ${b} tokens today` : "No daily token budget set (Settings → Usage & budget)", "info"); } },
     { cmd: "confetti", desc: "Confetti!", run: () => confetti(160) },
     { cmd: "mute", desc: "Mute sounds", run: () => setMute(true) },
@@ -4121,6 +4167,9 @@ ${body}
       { label: "Search in this chat", icon: "#i-search", run: searchInChat },
       { label: "Jump to message", icon: "#i-target", run: jumpToMessage },
       { label: "Delete last message", icon: "#i-trash", run: () => { const m = [...state.messages].reverse().find((x) => x.id); if (m) deleteMessage(m.id); } },
+      { label: "Copy chat link", icon: "#i-external", run: copyChatLink },
+      { label: "Stop reading aloud", icon: "#i-volume-x", run: stopSpeaking },
+      { label: "Double today's token budget", icon: "#i-spark", run: () => { const b = budgetGet() || 100000; lsSet("cs-token-budget", String(b * 2)); renderBudget(); toast("Budget raised to " + (b * 2).toLocaleString() + " tokens today"); } },
       { label: "Quick action: TL;DR", icon: "#i-wand", run: () => runQuickAction(QUICK_ACTIONS[0]) },
       { label: "Quick action: ELI5", icon: "#i-wand", run: () => runQuickAction(QUICK_ACTIONS[1]) },
       { label: "Quick action: Improve", icon: "#i-wand", run: () => runQuickAction(QUICK_ACTIONS[2]) },
@@ -4192,7 +4241,7 @@ ${body}
       counts.textContent = pref("wordcount") ? v.length + " chars · " + words + " words" : "";
       const key = state.chat ? "cs-draft-" + state.chat.id : "cs-draft-new";
       if (v) {
-        localStorage.setItem(key, v);
+        lsSet(key, v);
         const flag = $("#draft-flag");
         if (flag) { flag.classList.remove("hidden"); clearTimeout(comp._dt); comp._dt = setTimeout(() => flag.classList.add("hidden"), 1600); }
       } else localStorage.removeItem(key);
@@ -4260,7 +4309,7 @@ ${body}
     _bEl.value = budgetGet() || "";
     _bEl.addEventListener("input", () => {
       const v = parseInt(_bEl.value || "0", 10);
-      localStorage.setItem("cs-token-budget", String(isNaN(v) || v < 0 ? 0 : v));
+      lsSet("cs-token-budget", String(isNaN(v) || v < 0 ? 0 : v));
       renderBudget();
     });
   }
@@ -4521,5 +4570,24 @@ ${body}
   }
 
 
+  let _errToasted = false;
+  const _uiErrOnce = () => { if (!_errToasted) { _errToasted = true; toast("Something broke in the UI — see the console for details", "err", 8000); } };
+  window.addEventListener("error", _uiErrOnce);
+  window.addEventListener("unhandledrejection", _uiErrOnce);
+
   document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", () => {
+    // share link: /?chat=<id>
+    const cid = new URLSearchParams(location.search).get("chat");
+    if (!cid) return;
+    const tryOpen = (tries) => {
+      if (state.chats.some((c) => c.id === cid)) {
+        openChat(cid);
+        history.replaceState(null, "", location.pathname);
+        toast("Opened shared chat");
+      } else if (tries > 0) setTimeout(() => tryOpen(tries - 1), 300);
+      else toast("That chat link is gone (deleted?)", "warn");
+    };
+    setTimeout(() => tryOpen(10), 200);
+  });
 })();
