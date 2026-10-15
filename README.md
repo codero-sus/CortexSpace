@@ -398,3 +398,26 @@ model host this app speaks to) and the [website](https://codero.web.app).
 Everything is stored locally in `data/`. The only outbound network calls are the
 ones you configure: your Ollama endpoint, OpenRouter, and web search. Page
 fetching blocks private/internal IP ranges by default.
+
+## Recent improvements (wave 11)
+
+**Speed** — SQLite tuned (`synchronous=NORMAL`, 64 MB cache, 256 MB mmap,
+in-memory temp store, slower checkpoints); off-screen message and chat-list
+nodes skip rendering (`content-visibility`); streaming honors your
+preferred render speed; auto-scroll and live token stats are now
+toggleable; reduced-motion preference is respected.
+
+**Sharing** — every chat has a copyable link (`Export → Copy chat link`,
+`/share`, or the command palette); opening `/?chat=<id>` jumps straight in.
+
+**New per-message action** — *Reuse* puts any reply back into the composer.
+
+**Robustness** — streams that end early offer a one-click resend; the tab
+warns before closing mid-stream; quota-full storage degrades gracefully;
+a single global guard toasts if the UI itself breaks; security headers
+(`nosniff`, `DENY` framing, no-referrer) on every response; `/api/health`
+now reports uptime, PID and FTS capability.
+
+**Accessibility** — every icon button carries an `aria-label`, dialogs are
+proper `role="dialog" aria-modal` overlays, the toast stream is a live
+region, and keyboard focus is always visible.

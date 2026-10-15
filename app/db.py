@@ -32,6 +32,12 @@ class DB:
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys=ON")
+            # wave-11 tuning: WAL + NORMAL is the fast-and-safe pair
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA cache_size=-65536")   # 64 MB page cache
+            conn.execute("PRAGMA mmap_size=268435456") # 256 MB mmap
+            conn.execute("PRAGMA temp_store=MEMORY")
+            conn.execute("PRAGMA wal_autocheckpoint=1000")
             self._local.conn = conn
         return conn
 
