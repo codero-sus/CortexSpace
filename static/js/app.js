@@ -444,6 +444,8 @@
     list.innerHTML = "";
     const has = state.messages.length > 0;
     $("#messages").dataset.empty = has ? "false" : "true";
+    const vc = $("#view-chat");
+    if (vc) vc.classList.toggle("is-empty", !has);
     let lastAssistantIdx = -1;
     for (let i = 0; i < state.messages.length; i++) if (state.messages[i].role === "assistant") lastAssistantIdx = i;
     for (let i = 0; i < state.messages.length; i++) {
@@ -1023,7 +1025,7 @@
     state.controller = new AbortController();
     try {
       const _pin = pinnedModel(state.chat.id);
-      const _body = { content: text, context: myContext };
+      const _body = { content: text, context: myContext, mode: state.uiMode || "agent" };
       if (_pin) _body.model = _pin;
       await ssePost(`/api/chats/${state.chat.id}/messages`, _body, (ev, data) => {
         switch (ev) {
@@ -1614,13 +1616,18 @@
     if (!s) return;
     const pinned = pinnedModel(state.chat && state.chat.id);
     const badge = $("#model-badge");
+    let label, title;
     if (pinned) {
-      $("#model-badge-text").textContent = "📌 " + pinned;
-      if (badge) badge.title = "Pinned model for this chat — click to change";
+      label = "📌 " + pinned;
+      title = "Pinned model for this chat — click to change";
     } else {
-      $("#model-badge-text").textContent = s.provider === "demo" ? "demo (offline)" : `${s.provider} · ${currentModel(s)}`;
-      if (badge) badge.title = "Active model — click to pin one to this chat";
+      label = s.provider === "demo" ? "demo (offline)" : `${s.provider} · ${currentModel(s)}`;
+      title = "Active model — click to pin one to this chat";
     }
+    $("#model-badge-text").textContent = label;
+    if (badge) badge.title = title;
+    const _cmt = $("#composer-model-text");
+    if (_cmt) _cmt.textContent = label.length > 26 ? label.slice(0, 25) + "…" : label;
   }
 
   /* ---------------- palette ---------------- */
@@ -2784,6 +2791,7 @@ ${body}
     { key: "showTok", label: "Live token stats", type: "toggle", def: true },
     { key: "showCtx", label: "Context size under replies", type: "toggle", def: true },
     { key: "stickBottom", label: "Auto-scroll to new tokens", type: "toggle", def: true },
+    { key: "look", label: "Interface look", type: "seg", options: [["onyx", "Onyx"], ["classic", "Classic"]], def: "onyx" },
   ];
   let PREFS = {};
   try { PREFS = JSON.parse(localStorage.getItem("cs-prefs") || "{}"); } catch { PREFS = {}; }
@@ -2798,6 +2806,7 @@ ${body}
   function setPref(k, v) { PREFS[k] = v; lsSet("cs-prefs", JSON.stringify(PREFS)); applyPrefs(); }
   function applyPrefs() {
     const root = document.documentElement;
+    root.dataset.look = pref("look");
     for (const d of PREF_DEFS) {
       const v = pref(d.key);
       if (v === undefined) continue;
@@ -4304,6 +4313,77 @@ ${body}
     $("#btn-about").onclick = aboutModal;
   $("#model-badge").onclick = togglePinMenu;
   $("#btn-mic").onclick = toggleMic;
+  // ---- Agent / Chat mode toggle ----
+  state.uiMode = localStorage.getItem("cs-ui-mode") || "agent";
+  const _mA = $("#mode-agent"), _mC = $("#mode-chat");
+  function _setMode(m) {
+    state.uiMode = m;
+    localStorage.setItem("cs-ui-mode", m);
+    _mA.classList.toggle("on", m === "agent");
+    _mC.classList.toggle("on", m === "chat");
+    const lb = $("#composer-mode-label"); if (lb) lb.textContent = m;
+    $("#composer-hint").textContent = m === "chat" ? "Chat mode — direct answer, no tools" : "Enter to send · Shift+Enter for a new line";
+  }
+  if (_mA) _mA.onclick = () => _setMode("agent");
+  if (_mC) _mC.onclick = () => _setMode("chat");
+  _setMode(state.uiMode);
+  const _cm = $("#composer-model");
+  if (_cm) _cm.onclick = (e) => togglePinMenu(e);
+  const _ncs = $("#btn-new-chat-side");
+  if (_ncs) _ncs.onclick = newChat;
+  const _un = $("#user-name");
+  if (_un) {
+    const name = localStorage.getItem("cs-username") || "cortex";
+    _un.textContent = name;
+    const _av = $("#user-av"); if (_av) _av.textContent = name[0].toUpperCase();
+  }
+  const _ug = $("#btn-user-gear");
+  if (_ug) _ug.onclick = () => showView("settings");
+  const _csBtn = $("#btn-chat-switch"), _csMenu = $("#chat-switch-menu"), _csList = $("#chat-switch-list");
+  function _renderSwitch() {
+    if (!_csList) return;
+    _csList.innerHTML = "";
+    const list = (state.chats || []).slice(0, 30);
+    if (!list.length) _csList.append(el("div", { class: "search-hint" }, "No chats yet"));
+    for (const c of list) {
+      _csList.append(el("button", {
+        class: "pop-item" + (state.chat && state.chat.id === c.id ? " on" : ""),
+        onclick: () => { openChat(c.id); _closeSwitch(); },
+      }, el("span", { class: "csm-title" }, c.title), el("span", { class: "csm-prev" }, c.preview || "")));
+    }
+  }
+  function _openSwitch() { _renderSwitch(); _csMenu.classList.remove("hidden"); }
+  function _closeSwitch() { _csMenu.classList.add("hidden"); }
+  if (_csBtn) _csBtn.onclick = (e) => { e.stopPropagation(); _csMenu.classList.contains("hidden") ? _openSwitch() : _closeSwitch(); };
+  if (_csMenu) _csMenu.addEventListener("click", (e) => { if (e.target === _csMenu) _closeSwitch(); });
+  document.addEventListener("click", (e) => {
+    if (_csMenu && !_csMenu.classList.contains("hidden") && !e.target.closest("#chat-switch-menu") && !e.target.closest("#btn-chat-switch")) _closeSwitch();
+  });
+  const _pc = $("#persona-chip");
+  function _personaName() {
+    const sp = $("#set-prompt");
+    const v = sp && sp.value;
+    if (!v) return "Freeform";
+    for (const [k, p] of Object.entries(PERSONAS)) if (p === v) return k[0].toUpperCase() + k.slice(1);
+    return "Custom";
+  }
+  function _syncPersonaChip() {
+    const t = $("#persona-chip-text");
+    if (t) t.textContent = _personaName();
+  }
+  if (_pc) _pc.onclick = () => {
+    const keys = Object.keys(PERSONAS);
+    const cur = _personaName();
+    const i = keys.findIndex((k) => (k[0].toUpperCase() + k.slice(1)) === cur);
+    const next = keys[(i + 1) % keys.length];
+    const sp = $("#set-prompt");
+    if (sp) { sp.value = PERSONAS[next]; sp.dispatchEvent(new Event("input", { bubbles: true })); }
+    _syncPersonaChip();
+    toast("Persona: " + next + " (Settings → Prompt updated)");
+  };
+  _syncPersonaChip();
+  const _sp2 = $("#set-prompt");
+  if (_sp2) _sp2.addEventListener("input", _syncPersonaChip);
   const _bEl = $("#set-budget");
   if (_bEl) {
     _bEl.value = budgetGet() || "";

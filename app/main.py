@@ -171,6 +171,7 @@ class MessageIn(BaseModel):
     content: str
     context: Optional[list[str]] = None
     model: Optional[str] = None  # per-turn model override (pinned chat model)
+    mode: str = "agent"  # "agent" (full tool loop) | "chat" (plain completion)
 
 
 class MessageEditIn(BaseModel):
@@ -428,6 +429,69 @@ def _compute_stats(days: int):
 # The chat stream (SSE)
 # ---------------------------------------------------------------------------
 
+async def run_chat_stream(cid: str, db, content: str, context: list | None, model_override: str | None):
+    """Plain completion, no agent tool loop — the 'Chat' mode of the composer."""
+    t0 = time.monotonic()
+    from .providers.base import ChatRequest
+    s = get_settings_holder().get()
+    provider = get_provider(s)
+    model = (model_override or "").strip() or s.provider_model()
+
+    messages: list[dict] = [{
+        "role": "system",
+        "content": ("You are a direct chat assistant in CortexSpace. Answer concisely and well. "
+                    "You have no tools in this mode — just talk."),
+    }]
+    if context:
+        from . import worksp, webtools
+        parts = ["The user attached context to this message:"]
+        for p in (context or [])[:6]:
+            if p.startswith("page:"):
+                url = p[len("page:"):]
+                try:
+                    res = await webtools.fetch_page(url)
+                    parts.append(f"--- page: {res['title']} ---\n{res['text'][:8000]}")
+                except Exception as e:  # noqa: BLE001
+                    parts.append(f"--- page: {url} ---\n[fetch failed: {e}]")
+            else:
+                try:
+                    data = worksp.read_file(p, max_bytes=12_000)
+                    parts.append(f"--- {p} ---\n" + ("[binary]" if data["binary"] else data["content"]))
+                except Exception as e:  # noqa: BLE001
+                    parts.append(f"--- {p} ---\n[unreadable: {e}]")
+        messages.append({"role": "system", "content": "\n\n".join(parts)})
+    for m in db.list_messages(cid):
+        if m["role"] not in ("user", "assistant"):
+            continue
+        messages.append({"role": m["role"], "content": m["content"]})
+
+    ttft = None
+    usage: dict = {}
+    req = ChatRequest(messages=messages, tools=[], model=model,
+                      temperature=s.temperature, max_tokens=s.max_tokens)
+    async for ev in provider.stream(req):
+        if ev["type"] == "delta":
+            if ttft is None:
+                ttft = int((time.monotonic() - t0) * 1000)
+            yield {"type": "token", "text": ev["text"]}
+        elif ev["type"] == "done":
+            u = ev.get("usage")
+            if u is not None:
+                usage = {"prompt_tokens": getattr(u, "prompt_tokens", 0) or 0,
+                         "completion_tokens": getattr(u, "completion_tokens", 0) or 0}
+    yield {
+        "type": "done",
+        "usage": usage,
+        "model": model,
+        "provider": provider.id,
+        "ttft_ms": ttft,
+        "duration_ms": int((time.monotonic() - t0) * 1000),
+        "iterations": 0,
+        "tool_calls": [],
+        "ctx_chars": sum(len(m.get("content", "")) for m in messages),
+    }
+
+
 @app.post("/api/chats/{cid}/messages")
 async def chat_send(cid: str, body: MessageIn):
     if not db.get_chat(cid):
@@ -444,10 +508,19 @@ async def chat_send(cid: str, body: MessageIn):
     if chat and chat["title"] in ("New chat", ""):
         db.rename_chat(cid, content[:60].replace("\n", " ").strip() or "New chat")
 
+    if (body.mode or "agent") == "chat":
+        async def engine():
+            async for ev in run_chat_stream(cid, db, content, body.context, body.model):
+                yield ev
+    else:
+        async def engine():
+            async for ev in agent.run_agent(cid, db, content, body.context, model_override=body.model):
+                yield ev
+
     async def gen():
         _stream_bump(+1)
         try:
-            async for ev in agent.run_agent(cid, db, content, body.context, model_override=body.model):
+            async for ev in engine():
                 if ev["type"] == "done":
                     u = ev.get("usage") or {}
                     try:
