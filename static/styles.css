@@ -1757,3 +1757,88 @@ html[data-look="onyx"] #view-chat.is-empty .composer { max-width: 640px; }
 .csm-prev { font-size: 11px; color: var(--text-faint); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-look="onyx"] .empty-h1 { font-weight: 600; letter-spacing: .02em; }
 html[data-look="onyx"] .suggestion { border-radius: 10px; font-family: var(--font-mono); font-size: 12px; }
+
+/* ---------- wave 13: lag kill + agent-loop theater + ambient sky ---------- */
+
+/* LAG: content-visibility on dynamic lists caused reflow jank — off.
+   (reduced-motion + focus-visible from wave 11 stay.) */
+.msg, .chat-item { content-visibility: visible; contain-intrinsic-size: auto 0; }
+
+/* ambient sky canvas (overlay, non-interactive) */
+.ambient { position: fixed; inset: 0; z-index: 55; pointer-events: none; }
+
+/* "You" tag in user meta */
+.you-tag {
+  font-size: 10.5px; color: var(--text-faint);
+  display: inline-flex; align-items: center; gap: 5px;
+  letter-spacing: .04em;
+}
+.you-tag::before { content: none; }
+.msg-meta-row .you-tag { order: -1; margin-right: 4px; }
+
+/* assistant header: time next to persona */
+.who-time { color: var(--text-faint); font-size: 11px; margin-left: 2px; }
+
+/* "Processing request" line: text + animated bars + live timer */
+.proc-line {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 9px 14px; margin: 2px 0 8px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-inset, rgba(255,255,255,.03));
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--err, #f0716e);
+}
+.proc-txt { letter-spacing: .02em; }
+.proc-bars { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 12px; }
+.proc-bars i {
+  width: 5px; height: 4px; border-radius: 1px;
+  background: var(--err, #f0716e);
+  animation: procbar 0.9s ease-in-out infinite;
+}
+.proc-bars i:nth-child(2) { animation-delay: .15s; }
+.proc-bars i:nth-child(3) { animation-delay: .3s; }
+.proc-bars i:nth-child(4) { animation-delay: .45s; }
+@keyframes procbar {
+  0%, 100% { height: 4px; opacity: .55; }
+  50% { height: 12px; opacity: 1; }
+}
+.proc-timer { color: var(--text-faint); min-width: 34px; text-align: right; }
+
+/* agent-loop timeline: continuous connector + status nodes */
+.assistant-body .tool-card {
+  position: relative;
+  margin: 0 0 8px 20px;
+}
+.assistant-body .tool-card::before {
+  content: "";
+  position: absolute; left: -13px; top: -8px; bottom: -8px;
+  width: 2px; border-radius: 2px;
+  background: linear-gradient(var(--border), var(--border));
+}
+.assistant-body .tool-card:first-child::before { top: 14px; }
+.assistant-body .tool-card:not(:has(+ .tool-card))::before { bottom: auto; height: 24px; }
+/* node dot on the line */
+.assistant-body .tool-card::after {
+  content: "";
+  position: absolute; left: -17px; top: 12px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent, #6e5df0);
+  border: 2px solid var(--bg, #101318);
+  box-shadow: 0 0 0 1px var(--border);
+  transition: background .2s;
+}
+.assistant-body .tool-card.flash-ok::after { background: var(--ok); }
+.assistant-body .tool-card.flash-err::after,
+.assistant-body .tool-card.tool-err::after { background: var(--err); }
+/* running pulse on the node while a tool is active */
+.assistant-body .tool-card:has(.t-ic.run)::after {
+  animation: tlpulse 1.1s ease-in-out infinite;
+}
+@keyframes tlpulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--border), 0 0 0 0 color-mix(in srgb, var(--accent, #6e5df0) 45%, transparent); }
+  50% { box-shadow: 0 0 0 1px var(--border), 0 0 0 7px transparent; }
+}
+
+/* onyx: tool names uppercase + mono states */
+html[data-look="onyx"] .tool-head .t-desc b { text-transform: uppercase; letter-spacing: .08em; font-size: 11.5px; }
+html[data-look="onyx"] .proc-line { color: #ff6f61; border-color: #3a2624; }

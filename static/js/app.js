@@ -439,17 +439,34 @@
     state.view = v;
   }
 
+  const _msgNodeCache = new Map(); // id|sig -> {node, sig}
+  function msgSig(m) {
+    return m.role + "|" + m.content.length + "|" + (m.meta && m.meta.duration_ms) + "|" + (m.tools ? m.tools.length : 0) + "|" + (m.created_at || 0);
+  }
   function renderMessages() {
     const list = $("#msg-list");
-    list.innerHTML = "";
     const has = state.messages.length > 0;
     $("#messages").dataset.empty = has ? "false" : "true";
     const vc = $("#view-chat");
     if (vc) vc.classList.toggle("is-empty", !has);
     let lastAssistantIdx = -1;
     for (let i = 0; i < state.messages.length; i++) if (state.messages[i].role === "assistant") lastAssistantIdx = i;
+    const seen = new Set();
+    let reused = 0;
     for (let i = 0; i < state.messages.length; i++) {
-      list.append(messageNode(state.messages[i], { isLastAssistant: i === lastAssistantIdx && !state.streaming }));
+      const m = state.messages[i];
+      const key = (m.id || "anon" + i) + "#" + msgSig(m);
+      seen.add(m.id);
+      const hit = m.id ? _msgNodeCache.get(key) : null;
+      if (hit) { list.append(hit.node); reused++; continue; }
+      const node = messageNode(m, { isLastAssistant: i === lastAssistantIdx && !state.streaming });
+      if (m.id) _msgNodeCache.set(key, { node });
+      list.append(node);
+    }
+    // prune cache entries for removed messages
+    for (const k of [..._msgNodeCache.keys()]) {
+      const mid = k.split("#")[0];
+      if (mid !== "anon" && !seen.has(mid)) _msgNodeCache.delete(k);
     }
     updateExportButton();
     applyPins();
@@ -634,6 +651,7 @@
         el("div", { class: "bubble" }, esc(m.content)),
         chips.length ? el("div", { class: "ctx-chip-row", style: "display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end" }, chips) : null,
         el("div", { class: "msg-meta-row" },
+          el("span", { class: "you-tag" }, "● You"),
           el("div", { class: "msg-meta rt", "data-ts": m.created_at || Date.now() }, clock(m.created_at || Date.now())),
           msgActions(m, false),
         ),
@@ -723,6 +741,7 @@
   let streamNode = null, streamBody = null, streamMd = null, streamCaret = null, streamPending = "";
   let rafPending = false;
   let streamSettledHtml = "", streamSettledLen = 0, streamRenderTimer = null;
+  let procLine = null, procTimer = null;
   let streamStats = { tokens: 0, start: 0 };
   let streamDone = null;
 
@@ -739,7 +758,8 @@
     streamNode.append(
       el("div", { class: "assistant-head" },
         el("div", { class: "mark" }, el("svg", { viewBox: "0 0 24 24", html: '<path d="M12 2l2.4 6.2L21 10.5l-5.4 4 1.7 6.6L12 17.4l-5.3 3.7 1.7-6.6-5.4-4 6.6-2.3z" fill="currentColor"/>' })),
-        el("span", { class: "who" }, "CortexSpace"),
+        el("span", { class: "who" }, "⚡ " + personaName()),
+        el("span", { class: "when who-time" }, clock(Date.now())),
         el("span", { class: "when stream-stats" }),
       ),
       streamBody,
@@ -751,6 +771,11 @@
 
   function renderStreamText() {
     if (!streamMd) return;
+    if (procLine && procLine.isConnected && streamStats.tokens > 0) {
+      procLine.remove();
+      if (procTimer) { clearInterval(procTimer); procTimer = null; }
+      procLine = null;
+    }
     // Incremental: settle the stable prefix once; only the moving tail is re-parsed.
     if (streamPending.length > 240 && streamPending.length - streamSettledLen > 160) {
       const parts = streamPending.split("\n\n");
@@ -769,7 +794,7 @@
     const st = streamNode && streamNode.querySelector(".stream-stats");
     if (st && pref("showTok") && streamStats.tokens > 2) {
       const secs = (performance.now() - streamStats.start) / 1000;
-      st.textContent = Math.round(streamStats.tokens / Math.max(secs, 0.5)) + " tok/s · " + streamStats.tokens + " tok";
+      st.textContent = secs.toFixed(1) + "s · " + streamStats.tokens + " tok · " + Math.round(streamStats.tokens / Math.max(secs, 0.5)) + " tok/s";
     }
     const got = streamStats.tokens - (streamStats.lastRendered || 0);
     streamStats.lastRendered = streamStats.tokens;
@@ -783,9 +808,24 @@
 
   function newStreamBlock() {
     streamMd = el("div", { class: "md" });
-    if (!streamPending) streamMd.append(el("div", { class: "typing-dots" }, el("span"), el("span"), el("span")));
     streamCaret = el("span", { class: "caret" });
     streamMd.append(streamCaret);
+    if (!streamPending) {
+      procLine = el("div", { class: "proc-line" },
+        el("span", { class: "proc-txt" }, "Processing request"),
+        el("span", { class: "proc-bars" }, el("i"), el("i"), el("i"), el("i")),
+        el("span", { class: "proc-timer" }, "0.0s"),
+      );
+      streamBody.append(procLine);
+      procTimer && clearInterval(procTimer);
+      const t0 = performance.now();
+      procTimer = setInterval(() => {
+        if (!procLine || !procLine.isConnected) { clearInterval(procTimer); procTimer = null; return; }
+        const t = (performance.now() - t0) / 1000;
+        const el2 = procLine.querySelector(".proc-timer");
+        if (el2) el2.textContent = t.toFixed(1) + "s";
+      }, 150);
+    }
     streamBody.append(streamMd);
   }
 
@@ -814,17 +854,23 @@
     const head = el("div", { class: "tool-head", onclick: () => node.classList.toggle("open") },
       el("span", { class: "t-ic run", html: `<svg class="spin"><use href="${TOOL_ICONS[tool.name] || "#i-zap"}"/></svg>` }),
       el("span", { class: "t-desc" }, el("b", null, esc(tool.name)), "  " + esc(tool.description)),
-      el("span", { class: "t-state" }, "running…"),
+      el("span", { class: "t-state" }, "running "),
       ico("#i-chev-r", ),
     );
     head.children[head.children.length - 1].classList.add("t-caret");
+    const tState = node.querySelector(".t-state");
+    const t0 = performance.now();
+    const tInt = setInterval(() => {
+      if (!tState || !tState.isConnected) { clearInterval(tInt); return; }
+      tState.textContent = "running " + ((performance.now() - t0) / 1000).toFixed(1) + "s";
+    }, 150);
     const io = el("div", { class: "tool-io" },
       el("div", { class: "io-label" }, "arguments"),
       el("pre", null, JSON.stringify(tool.arguments || {}, null, 2)),
     );
     node.append(head, io);
     streamBody.append(node);
-    liveTools.set(tool.id, { tool, node, io, state: head.querySelector(".t-state"), ic: head.querySelector(".t-ic") });
+    liveTools.set(tool.id, { tool, node, io, state: head.querySelector(".t-state"), ic: head.querySelector(".t-ic"), _timer: tInt });
     logActivity({ ...tool, status: "running", kind: "tool", when: Date.now() });
     scrollBottom();
     bumpUnread();
@@ -833,7 +879,8 @@
   function finishToolCard(id, ok, output, ms) {
     const entry = liveTools.get(id);
     if (!entry) return;
-    entry.state.textContent = ok ? `✓ ${ms}ms` : "✗ failed";
+    if (entry._timer) { clearInterval(entry._timer); entry._timer = null; }
+    entry.state.textContent = ok ? `✓ done · ${(ms / 1000).toFixed(1)}s` : "✗ failed · " + ((ms || 0) / 1000).toFixed(1) + "s";
     entry.ic.classList.remove("run");
     entry.ic.classList.add(ok ? "ok" : "err");
     entry.ic.innerHTML = `<svg><use href="${TOOL_ICONS[entry.tool.name] || "#i-zap"}"/></svg>`;
@@ -1086,6 +1133,7 @@
     // finalize the streaming node into a stored message by re-fetching
     const hadStream = !!streamNode;
     if (streamRenderTimer) { clearTimeout(streamRenderTimer); streamRenderTimer = null; }
+    if (procTimer) { clearInterval(procTimer); procTimer = null; }
     if (hadStream) {
       streamCaret && streamCaret.remove();
       const finalText = state.streamText || "";
@@ -2278,6 +2326,14 @@ ${body}
     brain: "You are CortexSpace, an idea machine. When asked for options, give at least three distinct alternatives with one-line trade-offs, then recommend one. Explore the workspace with your tools when it might inform ideas. Use Markdown lists; keep each idea tight.",
   };
 
+  function personaName() {
+    const sp = typeof $ === "function" ? $("#set-prompt") : null;
+    const v = sp && sp.value;
+    if (!v) return "Freeform";
+    for (const [k, p] of Object.entries(PERSONAS)) if (p === v) return k[0].toUpperCase() + k.slice(1);
+    return "Custom";
+  }
+
   /* ---------------- init ---------------- */
 
   function initSeg(sel, key, apply) {
@@ -2792,6 +2848,7 @@ ${body}
     { key: "showCtx", label: "Context size under replies", type: "toggle", def: true },
     { key: "stickBottom", label: "Auto-scroll to new tokens", type: "toggle", def: true },
     { key: "look", label: "Interface look", type: "seg", options: [["onyx", "Onyx"], ["classic", "Classic"]], def: "onyx" },
+    { key: "ambient", label: "Ambient sky", type: "seg", options: [["off", "Off"], ["stars", "Stars"], ["rain", "Rain + comets"]], def: "rain" },
   ];
   let PREFS = {};
   try { PREFS = JSON.parse(localStorage.getItem("cs-prefs") || "{}"); } catch { PREFS = {}; }
@@ -2807,6 +2864,7 @@ ${body}
   function applyPrefs() {
     const root = document.documentElement;
     root.dataset.look = pref("look");
+    if (typeof ambientSetLevel === "function") ambientSetLevel(pref("ambient"));
     for (const d of PREF_DEFS) {
       const v = pref(d.key);
       if (v === undefined) continue;
@@ -2911,6 +2969,111 @@ ${body}
     return t;
   }
   function toastUndo(msg, label, fn) { return toast(msg, "ok", 6500, { label, fn }); }
+
+  /* ---- ambient sky: drifting stars, rain, shooting stars ---- */
+  const AMBIENT = { level: "rain", drops: [], stars: [], comets: [], nextComet: 0, raf: null, running: false };
+  function ambientSetLevel(lv) {
+    AMBIENT.level = lv;
+    if (!AMBIENT.running) ambientLoop();
+  }
+  function ambientInit() {
+    const cv = $("#ambient");
+    if (!cv || !cv.getContext) return;
+    const ctx = cv.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    function size() {
+      cv.width = Math.floor(innerWidth * dpr);
+      cv.height = Math.floor(innerHeight * dpr);
+      cv.style.width = innerWidth + "px";
+      cv.style.height = innerHeight + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    size();
+    window.addEventListener("resize", size);
+    // stars (always, at all levels except off)
+    for (let i = 0; i < 70; i++) {
+      AMBIENT.stars.push({ x: Math.random(), y: Math.random() * 0.9, r: 0.4 + Math.random() * 1.1, tw: Math.random() * Math.PI * 2, sp: 0.3 + Math.random() * 0.8 });
+    }
+    const nDrops = Math.min(110, Math.floor((innerWidth * innerHeight) / 16000));
+    for (let i = 0; i < nDrops; i++) {
+      AMBIENT.drops.push(ambDrop(true));
+    }
+    function ambDrop(anyY) {
+      return { x: Math.random() * (innerWidth + 200) - 100, y: anyY ? Math.random() * innerHeight : -20 - Math.random() * 80,
+               len: 8 + Math.random() * 14, v: 620 + Math.random() * 520, a: 0.05 + Math.random() * 0.09, warm: Math.random() < 0.12 };
+    }
+    let last = performance.now();
+    function frame(now) {
+      AMBIENT.raf = requestAnimationFrame(frame);
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (document.hidden) return;
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      const t = now / 1000;
+      // stars
+      if (AMBIENT.level !== "off") {
+        for (const st of AMBIENT.stars) {
+          st.tw += st.sp * dt;
+          const a = 0.05 + 0.10 * (0.5 + 0.5 * Math.sin(st.tw));
+          ctx.fillStyle = "rgba(168, 186, 255, " + a.toFixed(3) + ")";
+          ctx.beginPath();
+          ctx.arc(st.x * innerWidth, st.y * innerHeight, st.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      // rain
+      if (AMBIENT.level === "rain") {
+        for (const d of AMBIENT.drops) {
+          d.y += d.v * dt;
+          d.x += d.v * 0.06 * dt;
+          if (d.y > innerHeight + 20) Object.assign(d, ambDrop(false));
+          ctx.strokeStyle = d.warm ? "rgba(255, 214, 170, " + d.a.toFixed(3) + ")" : "rgba(150, 176, 255, " + d.a.toFixed(3) + ")";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x - d.len * 0.06, d.y - d.len);
+          ctx.stroke();
+        }
+      }
+      // shooting stars
+      if (now > AMBIENT.nextComet && AMBIENT.level !== "off") {
+        AMBIENT.nextComet = now + 5000 + Math.random() * 9000;
+        const fromLeft = Math.random() < 0.5;
+        AMBIENT.comets.push({
+          x: fromLeft ? -60 : innerWidth + 60,
+          y: 30 + Math.random() * innerHeight * 0.3,
+          vx: (fromLeft ? 1 : -1) * (900 + Math.random() * 600),
+          vy: 160 + Math.random() * 140,
+          life: 0, max: 0.8 + Math.random() * 0.5,
+        });
+      }
+      for (let i = AMBIENT.comets.length - 1; i >= 0; i--) {
+        const c = AMBIENT.comets[i];
+        c.life += dt;
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
+        if (c.life > c.max) { AMBIENT.comets.splice(i, 1); continue; }
+        const fade = 1 - c.life / c.max;
+        const tx = c.x - c.vx * 0.16, ty = c.y - c.vy * 0.16;
+        const grad = ctx.createLinearGradient(c.x, c.y, tx, ty);
+        grad.addColorStop(0, "rgba(255, 244, 224, " + (0.75 * fade).toFixed(3) + ")");
+        grad.addColorStop(1, "rgba(255, 244, 224, 0)");
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+      }
+    }
+    AMBIENT.raf = requestAnimationFrame(frame);
+    AMBIENT.running = true;
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && AMBIENT.raf) { cancelAnimationFrame(AMBIENT.raf); AMBIENT.raf = null; }
+      else if (!document.hidden && !AMBIENT.raf) { last = performance.now(); AMBIENT.raf = requestAnimationFrame(frame); }
+    }, { once: false });
+  }
+  setTimeout(ambientInit, 400);
 
   /* ---- confetti ---- */
 
@@ -4360,20 +4523,13 @@ ${body}
     if (_csMenu && !_csMenu.classList.contains("hidden") && !e.target.closest("#chat-switch-menu") && !e.target.closest("#btn-chat-switch")) _closeSwitch();
   });
   const _pc = $("#persona-chip");
-  function _personaName() {
-    const sp = $("#set-prompt");
-    const v = sp && sp.value;
-    if (!v) return "Freeform";
-    for (const [k, p] of Object.entries(PERSONAS)) if (p === v) return k[0].toUpperCase() + k.slice(1);
-    return "Custom";
-  }
   function _syncPersonaChip() {
     const t = $("#persona-chip-text");
-    if (t) t.textContent = _personaName();
+    if (t) t.textContent = personaName();
   }
   if (_pc) _pc.onclick = () => {
     const keys = Object.keys(PERSONAS);
-    const cur = _personaName();
+    const cur = personaName();
     const i = keys.findIndex((k) => (k[0].toUpperCase() + k.slice(1)) === cur);
     const next = keys[(i + 1) % keys.length];
     const sp = $("#set-prompt");
