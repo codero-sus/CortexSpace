@@ -1671,8 +1671,8 @@ html[data-look="onyx"] .side-lib-btn {
   font-size: 10.5px;
   letter-spacing: .14em;
 }
-html[data-look="onyx"] .side-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-html[data-look="onyx"] .side-row .side-label.head { flex: 1; }
+html[data-look="onyx"] .side-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; overflow: hidden; }
+html[data-look="onyx"] .side-row .side-label.head { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-look="onyx"] .chat-item,
 html[data-look="onyx"] .ft-row { font-size: 12.5px; }
 /* user row */
@@ -1689,18 +1689,30 @@ html[data-look="onyx"] .ft-row { font-size: 12.5px; }
 }
 .user-name { flex: 1; font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* topbar: centered title */
-html[data-look="onyx"] .topbar { justify-content: center; position: relative; }
+html[data-look="onyx"] .topbar { position: relative; }
 html[data-look="onyx"] .chat-title-wrap {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 2px;
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  gap: 2px; min-width: 0;
 }
 html[data-look="onyx"] .chat-title-wrap .chat-title {
-  text-align: center; width: min(46vw, 420px);
+  text-align: center; width: auto; max-width: min(42vw, 400px); min-width: 80px;
   font-family: var(--font-mono); font-size: 13px;
 }
 html[data-look="onyx"] .tb-chev { opacity: .55; }
+html[data-look="onyx"] .topbar-right, html[data-look="onyx"] .topbar .icon-btn { flex-shrink: 0; }
 /* floating composer */
 html[data-look="onyx"] .composer-wrap { padding: 0 16px 14px; }
+html[data-look="onyx"] .composer-foot {
+  max-width: 760px; margin: 0 auto;
+  flex-wrap: wrap; justify-content: center;
+  row-gap: 5px; column-gap: 10px;
+}
+html[data-look="onyx"] .composer-foot .w6-chips { flex-wrap: nowrap; gap: 4px; }
+html[data-look="onyx"] .w6-chip {
+  font-size: 10px; padding: 1px 7px; letter-spacing: 0;
+  white-space: nowrap;
+}
+html[data-look="onyx"] #view-chat.is-empty .composer-foot { max-width: 640px; }
 html[data-look="onyx"] .composer {
   max-width: 760px; margin: 0 auto;
   background: #0d1016;
@@ -1710,8 +1722,9 @@ html[data-look="onyx"] .composer {
   padding: 10px 12px 8px;
 }
 html[data-look="onyx"] .composer:focus-within { border-color: var(--accent, #6e5df0); }
-html[data-look="onyx"] #view-chat.is-empty .composer-wrap { margin-bottom: 9vh; }
+html[data-look="onyx"] #view-chat.is-empty .composer-wrap { margin-bottom: 2vh; }
 html[data-look="onyx"] #view-chat.is-empty .composer { max-width: 640px; }
+html[data-look="onyx"] #view-chat.is-empty .empty-state { padding-bottom: 2vh; }
 .composer-model-row {
   display: flex; align-items: center; justify-content: space-between;
   min-height: 18px; margin: 0 2px 6px;
