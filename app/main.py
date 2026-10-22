@@ -91,7 +91,9 @@ async def _static_cache_headers(request: Request, call_next):
     resp = await call_next(request)
     p = request.url.path
     if _STATIC_CACHE_RE.match(p):
-        resp.headers["Cache-Control"] = "public, max-age=3600"
+        # code changes fast during active development — keep JS/CSS brief
+        _maxage = 600 if p.endswith((".js", ".css")) else 3600
+        resp.headers["Cache-Control"] = f"public, max-age={_maxage}"
     elif p == "/":
         resp.headers["Cache-Control"] = "no-cache"
     return resp

@@ -1,8 +1,8 @@
 /* CortexSpace — minimal service worker:
    cache-first for static assets, network-first for the UI shell. */
-const CACHE = "cortexspace-v3";
-const SHELL = ["/", "/static/styles.css", "/static/styles-w6.css", "/static/styles-w8.css",
-              "/static/js/app.js", "/static/js/md.js", "/static/js/w6.js", "/static/js/w8.js",
+const CACHE = "cortexspace-v4";
+const SHELL = ["/", "/static/styles.css?v=4", "/static/styles-w6.css?v=4", "/static/styles-w8.css?v=4",
+              "/static/js/app.js?v=4", "/static/js/md.js?v=4", "/static/js/w6.js?v=4", "/static/js/w8.js?v=4",
               "/static/favicon.svg", "/static/manifest.json"];
 
 self.addEventListener("install", (e) => {
@@ -23,7 +23,7 @@ self.addEventListener("fetch", (e) => {
   if (url.pathname.startsWith("/api/")) return; // never cache API
   if (url.pathname.startsWith("/static/") || url.pathname === "/") {
     e.respondWith(
-      fetch(e.request)
+      fetch(e.request, {cache: "no-store"})
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
