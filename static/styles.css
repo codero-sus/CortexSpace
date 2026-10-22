@@ -1855,3 +1855,5 @@ html[data-look="onyx"] .suggestion { border-radius: 10px; font-family: var(--fon
 /* onyx: tool names uppercase + mono states */
 html[data-look="onyx"] .tool-head .t-desc b { text-transform: uppercase; letter-spacing: .08em; font-size: 11.5px; }
 html[data-look="onyx"] .proc-line { color: #ff6f61; border-color: #3a2624; }
+/* wave-13c: status spans are inline holders for block chip groups — make them flex containers */
+.composer-foot > span{ display:flex; min-width:0; flex-wrap:nowrap; }
