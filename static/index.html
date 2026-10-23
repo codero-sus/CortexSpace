@@ -10,11 +10,16 @@
 <title>CortexSpace</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/static/manifest.json">
-<link rel="stylesheet" href="/static/styles.css?v=4">
-<link rel="stylesheet" href="/static/styles-w6.css?v=4">
-<link rel="stylesheet" href="/static/styles-w8.css?v=4">
+<link rel="stylesheet" href="/static/styles.css?v=5">
+<link rel="stylesheet" href="/static/styles-w6.css?v=5">
+<link rel="stylesheet" href="/static/styles-w8.css?v=5">
 </head>
 <body>
+<!-- boot splash (removed after first paint) -->
+<div id="splash" aria-hidden="true">
+  <svg class="splash-star" viewBox="0 0 24 24"><path d="M12 2l2.4 6.2L21 10.5l-5.4 4 1.7 6.6L12 17.4l-5.3 3.7 1.7-6.6-5.4-4 6.6-2.3z" fill="currentColor"/></svg>
+  <span class="splash-word">CortexSpace</span>
+</div>
 <a class="skip-link" href="#composer">Skip to chat</a>
 <div id="aria-live" class="sr-only" aria-live="polite"></div>
 <div id="offline-banner" class="offline-banner hidden">Offline — changes are saved locally and will sync when the connection returns.</div>
@@ -975,9 +980,25 @@
 <!-- toasts -->
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
-<script src="/static/js/md.js?v=4"></script>
-<script src="/static/js/app.js?v=4"></script>
-<script src="/static/js/w6.js?v=4"></script>
-<script src="/static/js/w8.js?v=4"></script>
+<script src="/static/js/md.js?v=5"></script>
+<script src="/static/js/app.js?v=5"></script>
+<!-- wave 14: w6/w8 load after first paint so the shell renders as fast as possible;
+     both modules self-init based on document.readyState, so late loading is safe -->
+<script>
+(function () {
+  function loadLate() {
+    if (window.__lateLoaded) return;
+    window.__lateLoaded = true;
+    ["w6", "w8"].forEach(function (n) {
+      var s = document.createElement("script");
+      s.src = "/static/js/" + n + ".js?v=5";
+      s.onerror = function () { console.warn(n + ".js failed to load"); };
+      document.head.appendChild(s);
+    });
+  }
+  if (document.readyState === "complete") loadLate();
+  else { window.addEventListener("load", loadLate); setTimeout(loadLate, 4000); }
+})();
+</script>
 </body>
 </html>

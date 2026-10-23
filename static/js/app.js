@@ -1681,33 +1681,98 @@
   /* ---------------- palette ---------------- */
 
   function paletteItems() {
+    const A = "Actions", C = "Chats", F = "Files";
     const items = [
-      { icon: "#i-plus", title: "New chat", sub: "Start a fresh conversation", key: "⌘N", run: newChat },
-      { icon: "#i-search", title: "Search everything", sub: "Search chats and workspace files", key: "⌘F", run: openSearch },
-      { icon: "#i-file", title: "New note", sub: "Create a note in the workspace", run: promptNewNote },
-      { icon: "#i-folder", title: "New folder", sub: "Create a folder in the workspace", run: promptNewFolder },
-      { icon: "#i-download", title: "Export current chat", sub: "Download this chat as Markdown", run: exportChat },
-      { icon: "#i-gear", title: "Settings", sub: "Provider, model, agent behavior", key: "⌘,", run: () => showView("settings") },
-      { icon: state.theme === "dark" ? "#i-sun" : "#i-moon", title: state.theme === "dark" ? "Switch to light theme" : "Switch to dark theme", key: "⌘.", run: toggleTheme },
-      { icon: "#i-sidebar", title: "Toggle sidebar", key: "⌘B", run: () => toggleSidebar() },
-      { icon: "#i-panel", title: "Toggle panel", key: "⌘J", run: () => togglePanel() },
-      { icon: "#i-focus", title: "Focus mode", key: "⌘\\", run: () => toggleFocusMode() },
-      { icon: "#i-pin", title: "Pin / unpin current chat", run: () => state.chat && pinToggle(state.chat) },
-      { icon: "#i-fork", title: "Fork current chat", run: () => forkChatFrom(null) },
-      { icon: "#i-chart", title: "Usage insights", run: () => { ensurePanelOpen(); setPanelTab("insights"); renderInsights(); } },
-      { icon: "#i-spark", title: "Arena — wrappers of the world", sub: "16 wrappers, 8 dimensions, live measurements", run: () => { ensurePanelOpen(); setPanelTab("arena"); if (window.W8) W8.refreshLive(); } },
-      { icon: "#i-keyboard", title: "Keyboard shortcuts", key: "?", run: () => openShortcuts() },
-      { icon: "#i-spark", title: "Replay the tour", run: () => { tourIdx = 0; tourShow(); } },
-      { icon: "#i-download", title: "Download workspace as .zip", run: () => { window.location.href = "/api/workspace/zip"; toast("Downloading workspace…"); } },
+      { icon: "#i-plus", title: "New chat", sub: "Start a fresh conversation", key: "⌘N", group: A, run: newChat },
+      { icon: "#i-search", title: "Search everything", sub: "Search chats and workspace files", key: "⌘F", group: A, run: openSearch },
+      { icon: "#i-edit", title: "Rename current chat", sub: "Edit this chat's title", group: A, run: () => { const t = $("#chat-title"); t.focus(); t.select && t.select(); } },
+      { icon: "#i-folder", title: "Archive current chat", sub: "Move it to the archive", group: A, run: async () => {
+        if (!state.chat) return toast("No open chat", "warn");
+        try { await api(`/api/chats/${state.chat.id}/archive`, { method: "POST" }); toast("Chat archived"); newChat(); } catch (e) { toast(e.message, "err"); }
+      } },
+      { icon: "#i-external", title: "Copy chat link", sub: "Share a link to this chat", group: A, run: () => copyChatLink() },
+      { icon: "#i-file", title: "New note", sub: "Create a note in the workspace", group: A, run: promptNewNote },
+      { icon: "#i-folder", title: "New folder", sub: "Create a folder in the workspace", group: A, run: promptNewFolder },
+      { icon: "#i-download", title: "Export current chat", sub: "Download this chat as Markdown", group: A, run: exportChat },
+      { icon: "#i-gear", title: "Settings", sub: "Provider, model, agent behavior", key: "⌘,", group: A, run: () => showView("settings") },
+      { icon: state.theme === "dark" ? "#i-sun" : "#i-moon", title: state.theme === "dark" ? "Switch to light theme" : "Switch to dark theme", key: "⌘.", group: A, run: toggleTheme },
+      { icon: "#i-sidebar", title: "Toggle sidebar", key: "⌘B", group: A, run: () => toggleSidebar() },
+      { icon: "#i-panel", title: "Toggle panel", key: "⌘J", group: A, run: () => togglePanel() },
+      { icon: "#i-focus", title: "Focus mode", key: "⌘\\", group: A, run: () => toggleFocusMode() },
+      { icon: "#i-pin", title: "Pin / unpin current chat", group: A, run: () => state.chat && pinToggle(state.chat) },
+      { icon: "#i-fork", title: "Fork current chat", group: A, run: () => forkChatFrom(null) },
+      { icon: "#i-spark", title: "Toggle ambient sky", sub: "Rain + comets vs off", group: A, run: () => {
+        const cur = pref("ambient") || "off";
+        const next = cur === "off" ? "rain" : "off";
+        setPref("ambient", next);
+        if (typeof ambientSetLevel === "function") ambientSetLevel(next);
+        toast(next === "off" ? "Ambient sky off" : "Ambient sky: rain + comets");
+      } },
+      { icon: "#i-chart", title: "Usage insights", group: A, run: () => { ensurePanelOpen(); setPanelTab("insights"); renderInsights(); } },
+      { icon: "#i-spark", title: "Arena — wrappers of the world", sub: "16 wrappers, 8 dimensions, live measurements", group: A, run: () => { ensurePanelOpen(); setPanelTab("arena"); if (window.W8) W8.refreshLive(); } },
+      { icon: "#i-server", title: "Check all providers", sub: "Ping Ollama, OpenRouter, OpenAI in parallel", group: A, run: async () => {
+        try {
+          const r = await api("/api/providers/status");
+          const rows = Object.entries(r.status || {});
+          const on = rows.filter(([, v]) => v.ok).map(([k]) => k);
+          const off = rows.filter(([, v]) => !v.ok).map(([k]) => k);
+          toast(on.length ? "Online: " + on.join(", ") + (off.length ? " · offline: " + off.join(", ") : "") : "All providers unreachable", on.length ? undefined : "err");
+        } catch (e) { toast(e.message, "err"); }
+      } },
+      { icon: "#i-activity", title: "Run model benchmark", sub: "Measured tok/s for the active model", group: A, run: async () => {
+        try {
+          const r = await api("/api/bench");
+          const b = (r.bench && r.bench.rows && r.bench.rows[0]) || null;
+          toast(b && b.tok_s ? `Bench: ${b.model} @ ${b.tok_s} tok/s (ttft ${b.ttft_ms} ms)` : "No benchmark runs yet — send a message first");
+        } catch (e) { toast(e.message, "err"); }
+      } },
+      { icon: "#i-refresh", title: "Vacuum database", sub: "Reclaim disk space", group: A, run: async () => {
+        try { await api("/api/db/vacuum", { method: "POST" }); toast("Database vacuumed"); } catch (e) { toast(e.message, "err"); }
+      } },
+      { icon: "#i-keyboard", title: "Keyboard shortcuts", key: "?", group: A, run: () => openShortcuts() },
+      { icon: "#i-spark", title: "Replay the tour", group: A, run: () => { tourIdx = 0; tourShow(); } },
+      { icon: "#i-info", title: "About CortexSpace", group: A, run: () => aboutModal() },
+      { icon: "#i-download", title: "Download workspace as .zip", group: A, run: () => { window.location.href = "/api/workspace/zip"; toast("Downloading workspace…"); } },
     ];
     for (const c of state.chats.slice(0, 12)) {
-      items.push({ icon: "#i-chat", title: "Open chat: " + c.title, sub: relTime(c.updated_at), run: () => openChat(c.id) });
+      items.push({ icon: "#i-chat", title: c.title, sub: "Open chat · " + relTime(c.updated_at), group: C, run: () => openChat(c.id) });
     }
     for (const f of flatFiles().slice(0, 40)) {
-      items.push({ icon: "#i-file", title: "Open file: " + f, run: () => openFile(f) });
+      items.push({ icon: "#i-file", title: f, sub: "Open file", group: F, run: () => openFile(f) });
     }
-    if (state._paletteExtra) for (const x of state._paletteExtra) items.push({ icon: x.icon, title: x.label, run: x.run });
+    if (state._paletteExtra) for (const x of state._paletteExtra) items.push({ icon: x.icon, title: x.label, group: A, run: x.run });
     return items;
+  }
+
+  /* wave 14: fuzzy subsequence scoring — "nl" → New chat, "arc" → Archive */
+  function palScore(q, title) {
+    if (!q) return 0;
+    const t = (title + " " + (arguments[2] || "")).toLowerCase();
+    const qi = q.toLowerCase();
+    const si = t.indexOf(qi);
+    if (si >= 0) return 1000 - si; // substring: strongest
+    let ti = 0, score = 0;
+    for (let i = 0; i < qi.length; i++) {
+      const idx = t.indexOf(qi[i], ti);
+      if (idx < 0) return -1;
+      score += idx === ti ? 12 : (ti === 0 || /\W/.test(t[ti - 1]) ? 6 : 1);
+      ti = idx + 1;
+    }
+    return score;
+  }
+  function palHi(title, q) {
+    if (!q) return esc(title);
+    const t = title.toLowerCase();
+    const si = t.indexOf(q.toLowerCase());
+    if (si >= 0) return esc(title.slice(0, si)) + '<b class="pal-hl">' + esc(title.slice(si, si + q.length)) + "</b>" + esc(title.slice(si + q.length));
+    let out = "", ti = 0;
+    for (let i = 0; i < q.length; i++) {
+      const idx = t.indexOf(q[i].toLowerCase(), ti);
+      if (idx < 0) break;
+      out += esc(title.slice(ti, idx)) + '<b class="pal-hl">' + esc(title[idx]) + "</b>";
+      ti = idx + 1;
+    }
+    return out + esc(title.slice(ti));
   }
 
   let palSel = 0, palFiltered = [];
@@ -1725,21 +1790,31 @@
     $("#palette").classList.add("hidden");
   }
   function renderPalette() {
-    const q = ($("#palette-input").value || "").toLowerCase();
-    const all = paletteItems();
-    palFiltered = q ? all.filter((i) => (i.title + " " + (i.sub || "")).toLowerCase().includes(q)).slice(0, 14) : all.slice(0, 14);
+    const q = ($("#palette-input").value || "").trim().toLowerCase();
+    const scored = paletteItems()
+      .map((it) => ({ it, s: palScore(q, it.title, it.sub) }))
+      .filter((x) => x.s >= 0);
+    if (q) scored.sort((a, b) => b.s - a.s);
+    palFiltered = scored.slice(0, 18).map((x) => x.it);
     if (palSel >= palFiltered.length) palSel = 0;
     const list = $("#palette-list");
     list.innerHTML = "";
     if (!palFiltered.length) list.append(el("div", { class: "pal-item", style: "opacity:.5;cursor:default" }, el("div", { class: "pi-main" }, el("div", { class: "pi-title" }, "No matches"))));
+    let lastGroup = null;
     palFiltered.forEach((it, idx) => {
+      if (q && (it.group || "") !== lastGroup) {
+        lastGroup = it.group || "";
+        list.append(el("div", { class: "pal-group" }, lastGroup));
+      }
       const node = el("div", {
         class: "pal-item" + (idx === palSel ? " sel" : ""),
         onmouseenter: () => { palSel = idx; renderPalette(); },
         onclick: () => runPal(it),
       },
         el("div", { class: "pi-ic" }, el("svg", null, ico(it.icon))),
-        el("div", { class: "pi-main" }, el("div", { class: "pi-title" }, esc(it.title)), it.sub ? el("div", { class: "pi-sub" }, esc(it.sub)) : null),
+        el("div", { class: "pi-main" },
+          q ? el("div", { class: "pi-title", html: palHi(it.title, q) }) : el("div", { class: "pi-title" }, esc(it.title)),
+          it.sub ? el("div", { class: "pi-sub" }, esc(it.sub)) : null),
         it.key ? el("span", { class: "pi-key" }, it.key) : null,
       );
       list.append(node);
@@ -2803,6 +2878,14 @@ ${body}
     }
     setPanelTab("file");
     renderMessages();
+    // wave 14: boot splash — fade once the shell is painted
+    (function () {
+      const s = $("#splash");
+      if (!s) return;
+      const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced) { s.remove(); return; }
+      setTimeout(() => { s.classList.add("gone"); setTimeout(() => s.remove(), 450); }, 380);
+    })();
     // auto-open welcome file in panel
     openFile("welcome.md").catch(() => {});
     loadUsage().catch(() => {});
