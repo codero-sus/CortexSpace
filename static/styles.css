@@ -1857,3 +1857,33 @@ html[data-look="onyx"] .tool-head .t-desc b { text-transform: uppercase; letter-
 html[data-look="onyx"] .proc-line { color: #ff6f61; border-color: #3a2624; }
 /* wave-13c: status spans are inline holders for block chip groups — make them flex containers */
 .composer-foot > span{ display:flex; min-width:0; flex-wrap:nowrap; }
+
+/* ============================================================
+   wave 14 — boot splash, palette v2, tactile micro-interactions
+   ============================================================ */
+#splash {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: var(--bg);
+  transition: opacity .45s ease;
+}
+#splash.gone { opacity: 0; pointer-events: none; }
+.splash-star { width: 44px; height: 44px; color: var(--accent, #6e5df0); animation: splashpulse 1.2s ease-in-out infinite; }
+.splash-word { font-family: var(--mono); font-size: 13px; letter-spacing: .22em; text-transform: uppercase; color: var(--text-dim); }
+@keyframes splashpulse { 0%, 100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.12); opacity: 1; } }
+
+/* palette v2: section headers + fuzzy match highlight + open anim */
+.pal-group { padding: 9px 12px 3px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); opacity: .75; }
+.pal-hl { font-weight: 700; color: var(--accent, #6e5df0); }
+.palette:not(.hidden) .palette-box { animation: pal-in .16s ease; transform-origin: 50% 18%; }
+@keyframes pal-in { from { opacity: 0; transform: scale(.985) translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* tactile: everything pressable compresses on press */
+.icon-btn:active, .chip-btn:active, .ma-btn:active, .suggestion:active,
+.pal-item:active, .send-btn:active, .persona-chip:active, .w6-chip:active { transform: scale(.93); }
+
+/* reduced motion: kill the new moving parts */
+@media (prefers-reduced-motion: reduce) {
+  #splash, .splash-star { animation: none; transition: none; }
+  .palette:not(.hidden) .palette-box { animation: none; }
+}

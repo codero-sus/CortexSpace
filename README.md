@@ -375,6 +375,18 @@ speed. Ground CortexSpace chooses not to fight (stated in the panel too):
 multi-user auth/RBAC, vector-DB RAG, image generation, MCP marketplaces —
 team/enterprise battlegrounds, not a personal workspace's.
 
+## Waves 8–14
+
+- **Wave 8 — The Arena** (`w8.js`) — "search all wrappers in this world and rule them": 16 wrappers × 8 battle dimensions, scored 0/½/1 with **live-measured** payload size and speed pulled from this app's own bench ledger (`/api/arena`, `/api/arena/live`).
+- **Cortex LLMHoster provider** — first-class local provider integration alongside Ollama and OpenRouter.
+- **Wave 9 — efficiency + voice** — dictation (Web Speech), read-aloud (TTS) per message, a daily token budget with a live status chip, and a `/summarize` slash command.
+- **Wave 10** — attribution (codero-sus + codero.web.app in About and footer) and a streaming-render lag cut.
+- **Wave 11 — 119 improvements** — SQLite PRAGMA tuning, share links (`/?chat=<id>`), accessibility pass (73 aria-labels), security headers, robustness fixes.
+- **Wave 12 — Onyx** — the Odysseus-grade shell (mono type, near-black two-tone, floating composer) plus **Agent/Chat modes**: Chat mode skips the tool loop entirely (0 iterations, no approvals).
+- **Wave 13 — agent-loop theater + the lag kill** — vertical tool timeline (connector, status nodes, pulse while running, live timers → `✓ done · 0.4s`), a processing indicator with a moving bar, per-stream `X.Xs · N tok · M tok/s` stats, an ambient sky canvas (70 stars, rain streaks, comets — a Settings pref), and the real perf fix: memoized message rendering plus the removal of a `content-visibility` rule that recomputed layout on every re-render.
+- **Wave 13b / 13c — layout + cache repair** — topbar/chip/spacing fixes, then killing the stale-asset trap: version-busted asset URLs (`?v=`), service-worker cache bumps with `no-store` network fetches, and a 10-minute JS/CSS TTL so a bad CSS release can never outlive its fix for an hour.
+- **Wave 14 — the 1000X pass** — Palette v2: fuzzy subsequence matching ("nl" → *New chat*), Actions/Chats/Files sections, match highlighting, and 8 new commands (rename, archive, copy chat link, ambient toggle, check all providers, run benchmark, vacuum DB, about). Plus: a boot splash, `w6`/`w8` loaded after first paint for a faster shell, a **live payload chip** that shows the gzipped bytes your browser actually downloaded (the speed claim, measured in your own browser), tactile press feedback on every control, and reduced-motion support for all of it.
+
 ## Keyboard
 
 `⌘K` palette · `⌘F` search · `⌘N` new chat · `⌘B` sidebar · `⌘J` panel ·

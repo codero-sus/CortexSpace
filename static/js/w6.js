@@ -206,6 +206,7 @@
       chip("mem", "— MB", "Server memory"),
       chip("words", "0 words", "Words today"),
       chip("msgs", "0 msg", "Messages today"),
+      chip("payload", "— KB", "What this browser actually downloaded for the page (gzipped) — live-measured"),
     );
     R.append(
       chip("provider", "provider", "Active provider"),
@@ -222,6 +223,22 @@
     refreshStatusChips();
   }
   function tickStatus() {
+    // wave 14: live payload stat — real bytes downloaded, refresh 30s
+    if (chips.payload) {
+      if (!tickStatus._pt || Date.now() - tickStatus._pt > 30000) {
+        tickStatus._pt = Date.now();
+        try {
+          let total = 0, any = false;
+          const nav = performance.getEntriesByType("navigation")[0];
+          if (nav && nav.transferSize) { total += nav.transferSize; any = true; }
+          for (const r of performance.getEntriesByType("resource")) if (r.transferSize) { total += r.transferSize; any = true; }
+          chips.payload.textContent = any ? (total / 1024).toFixed(total < 10240 ? 1 : 0) + " KB" : "cache";
+          chips.payload.title = any
+            ? "Total bytes this browser downloaded (gzipped, live-measured): " + total + " B"
+            : "Served from service-worker cache — 0 bytes over the wire";
+        } catch { chips.payload.textContent = "— KB"; }
+      }
+    }
     const d = new Date();
     const hh = String(d.getHours()).padStart(2, "0"), mm = String(d.getMinutes()).padStart(2, "0"), ss = String(d.getSeconds()).padStart(2, "0");
     if (chips.clock) {
