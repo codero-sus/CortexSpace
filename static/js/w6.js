@@ -1153,7 +1153,10 @@
       });
     };
     if (inp) inp.addEventListener("input", paint);
-    new MutationObserver(paint).observe(box, { attributes: true, childList: true, subtree: true });
+    // watch ONLY the palette container's own class (show/hide).
+    // Never the subtree: paint() mutates the subtree, and a subtree/childList
+    // observer would re-trigger paint() forever (infinite loop, frozen tab).
+    new MutationObserver(paint).observe(box, { attributes: true, attributeFilter: ["class"] });
     const iv = setInterval(() => { if (box.classList.contains("hidden")) { paint(); } }, 300);
   }
   function closePalette() { const x = $("#palette"); if (x) x.classList.add("hidden"); }
@@ -1642,7 +1645,6 @@
       const hm = s.heatmap || [];
       for (let i = 13; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000);
-        const key = time.strftime ? null : null;
         const v = (s.by_day && s.by_day[d.toISOString().slice(0, 10)]) || null;
         const n = v ? (typeof v === "number" ? v : (v.msgs || 0)) : (hm.find((h) => String(h.day) === d.toISOString().slice(0, 10)) || {}).n || 0;
         const dot = el("span", { class: "w6-day" + (n ? " on" : ""), title: d.toDateString() + ": " + (n || 0), style: n ? "opacity:" + Math.min(1, 0.25 + n / 12) : "" });
