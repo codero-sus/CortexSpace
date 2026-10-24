@@ -1,8 +1,8 @@
 /* CortexSpace — minimal service worker:
    cache-first for static assets, network-first for the UI shell. */
-const CACHE = "cortexspace-v5";
-const SHELL = ["/", "/static/styles.css?v=5", "/static/styles-w6.css?v=5", "/static/styles-w8.css?v=5",
-              "/static/js/app.js?v=5", "/static/js/md.js?v=5", "/static/js/w6.js?v=5", "/static/js/w8.js?v=5",
+const CACHE = "cortexspace-v6";
+const SHELL = ["/", "/static/styles.css?v=6", "/static/styles-w6.css?v=6", "/static/styles-w8.css?v=6",
+              "/static/js/app.js?v=6", "/static/js/md.js?v=6", "/static/js/w6.js?v=6", "/static/js/w8.js?v=6",
               "/static/favicon.svg", "/static/manifest.json"];
 
 self.addEventListener("install", (e) => {

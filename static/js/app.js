@@ -2951,11 +2951,12 @@ ${body}
     for (const d of PREF_DEFS) {
       const v = pref(d.key);
       if (v === undefined) continue;
-      const attr = d.key.replace(/([A-Z])/g, "-$1").toLowerCase();
+      // dataset names must be camelCase — a hyphen before a lowercase letter
+      // ("toast-pos") is a SyntaxError per spec and kills the whole cascade
       if (d.type === "swatches") root.dataset.accent = v === "default" ? "" : v;
-      else if (d.type === "seg") root.dataset[attr] = v;
-      else if (d.type === "toggle") root.dataset[attr] = v ? "on" : "off";
-      else root.dataset[attr] = v;
+      else if (d.type === "seg") root.dataset[d.key] = v;
+      else if (d.type === "toggle") root.dataset[d.key] = v ? "on" : "off";
+      else root.dataset[d.key] = v;
     }
     if (pref("toastPos") === "top") $("#toasts").classList.add("top"); else $("#toasts").classList.remove("top");
     if (pref("statusbar")) $("#status-left").parentElement.style.display = ""; else $("#status-left").parentElement.style.display = "none";
@@ -3054,15 +3055,30 @@ ${body}
   function toastUndo(msg, label, fn) { return toast(msg, "ok", 6500, { label, fn }); }
 
   /* ---- ambient sky: drifting stars, rain, shooting stars ---- */
-  const AMBIENT = { level: "rain", drops: [], stars: [], comets: [], nextComet: 0, raf: null, running: false };
+  const AMBIENT = { level: "rain", drops: [], stars: [], comets: [], nextComet: 0, raf: null, running: false, ctx: null, frame: null, last: 0 };
+  function ambientStart() {
+    if (AMBIENT.running || !AMBIENT.frame || AMBIENT.level === "off") return;
+    AMBIENT.running = true;
+    AMBIENT.last = performance.now();
+    AMBIENT.raf = requestAnimationFrame(AMBIENT.frame);
+  }
+  function ambientStop() {
+    AMBIENT.running = false;
+    if (AMBIENT.raf) { cancelAnimationFrame(AMBIENT.raf); AMBIENT.raf = null; }
+    if (AMBIENT.ctx) AMBIENT.ctx.clearRect(0, 0, innerWidth, innerHeight);
+  }
   function ambientSetLevel(lv) {
     AMBIENT.level = lv;
-    if (!AMBIENT.running) ambientLoop();
+    if (!AMBIENT.frame) return; // canvas not initialized yet — ambientInit() applies this level
+    if (lv === "off") ambientStop();
+    else ambientStart();
   }
   function ambientInit() {
     const cv = $("#ambient");
     if (!cv || !cv.getContext) return;
     const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    AMBIENT.ctx = ctx;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     function size() {
       cv.width = Math.floor(innerWidth * dpr);
@@ -3085,11 +3101,11 @@ ${body}
       return { x: Math.random() * (innerWidth + 200) - 100, y: anyY ? Math.random() * innerHeight : -20 - Math.random() * 80,
                len: 8 + Math.random() * 14, v: 620 + Math.random() * 520, a: 0.05 + Math.random() * 0.09, warm: Math.random() < 0.12 };
     }
-    let last = performance.now();
+    AMBIENT.last = performance.now();
     function frame(now) {
       AMBIENT.raf = requestAnimationFrame(frame);
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
+      const dt = Math.min(0.05, (now - AMBIENT.last) / 1000);
+      AMBIENT.last = now;
       if (document.hidden) return;
       ctx.clearRect(0, 0, innerWidth, innerHeight);
       const t = now / 1000;
@@ -3149,11 +3165,11 @@ ${body}
         ctx.stroke();
       }
     }
-    AMBIENT.raf = requestAnimationFrame(frame);
-    AMBIENT.running = true;
+    AMBIENT.frame = frame;
+    ambientStart(); // respects level === "off"
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && AMBIENT.raf) { cancelAnimationFrame(AMBIENT.raf); AMBIENT.raf = null; }
-      else if (!document.hidden && !AMBIENT.raf) { last = performance.now(); AMBIENT.raf = requestAnimationFrame(frame); }
+      if (document.hidden) ambientStop();
+      else ambientStart();
     }, { once: false });
   }
   setTimeout(ambientInit, 400);
@@ -3380,7 +3396,7 @@ ${body}
       b.hidden = true;
     };
     const setConn = (on) => {
-      navigator.onLine = on;
+      // navigator.onLine is read-only per current spec — never assign it
       $("#conn-ind")?.classList.toggle("off", !on);
       $("#online-dot")?.classList.toggle("off", !on);
       $("#offline-banner")?.classList.toggle("hidden", on);
@@ -3590,6 +3606,14 @@ ${body}
         state.settings.strict_approve = pol.value === "strict";
       };
     }
+  }
+  function resetPrefs() {
+    PREFS = {};
+    try { localStorage.removeItem("cs-prefs"); localStorage.removeItem("cs-custom-css"); } catch {}
+    const cc = $("#set-custom-css");
+    if (cc) cc.value = "";
+    applyPrefs();
+    toast("Interface preferences reset to defaults");
   }
   function initSettingsExtras() {
     for (const b of $$("#temp-presets .chip-btn")) b.onclick = () => {
