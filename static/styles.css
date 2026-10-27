@@ -1887,3 +1887,13 @@ html[data-look="onyx"] .proc-line { color: #ff6f61; border-color: #3a2624; }
   #splash, .splash-star { animation: none; transition: none; }
   .palette:not(.hidden) .palette-box { animation: none; }
 }
+
+/* wave 15 — status stream slot (streaming/turn status without destroying chips) */
+.status-stream {
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 45%; min-width: 0;
+}
+/* while busy: stream text leads, chip groups yield */
+.composer-foot.busy #status-left .w6-chips,
+.composer-foot.busy #status-right .w6-chips { display: none; }

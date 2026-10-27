@@ -375,7 +375,7 @@ speed. Ground CortexSpace chooses not to fight (stated in the panel too):
 multi-user auth/RBAC, vector-DB RAG, image generation, MCP marketplaces —
 team/enterprise battlegrounds, not a personal workspace's.
 
-## Waves 8–14
+## Waves 8–15
 
 - **Wave 8 — The Arena** (`w8.js`) — "search all wrappers in this world and rule them": 16 wrappers × 8 battle dimensions, scored 0/½/1 with **live-measured** payload size and speed pulled from this app's own bench ledger (`/api/arena`, `/api/arena/live`).
 - **Cortex LLMHoster provider** — first-class local provider integration alongside Ollama and OpenRouter.
@@ -386,6 +386,24 @@ team/enterprise battlegrounds, not a personal workspace's.
 - **Wave 13 — agent-loop theater + the lag kill** — vertical tool timeline (connector, status nodes, pulse while running, live timers → `✓ done · 0.4s`), a processing indicator with a moving bar, per-stream `X.Xs · N tok · M tok/s` stats, an ambient sky canvas (70 stars, rain streaks, comets — a Settings pref), and the real perf fix: memoized message rendering plus the removal of a `content-visibility` rule that recomputed layout on every re-render.
 - **Wave 13b / 13c — layout + cache repair** — topbar/chip/spacing fixes, then killing the stale-asset trap: version-busted asset URLs (`?v=`), service-worker cache bumps with `no-store` network fetches, and a 10-minute JS/CSS TTL so a bad CSS release can never outlive its fix for an hour.
 - **Wave 14 — the 1000X pass** — Palette v2: fuzzy subsequence matching ("nl" → *New chat*), Actions/Chats/Files sections, match highlighting, and 8 new commands (rename, archive, copy chat link, ambient toggle, check all providers, run benchmark, vacuum DB, about). Plus: a boot splash, `w6`/`w8` loaded after first paint for a faster shell, a **live payload chip** that shows the gzipped bytes your browser actually downloaded (the speed claim, measured in your own browser), tactile press feedback on every control, and reduced-motion support for all of it.
+- **Wave 14b — the load-path bug hunt** — six bugs that each masked the next, all found by running the real page in a DOM (jsdom) instead of only hitting the API: a tab-freezing MutationObserver loop in the palette, a spec-`SyntaxError` from kebab-case `dataset` keys, an undefined `resetPrefs`, a write to the now read-only `navigator.onLine`, a call to a non-existent `ambientLoop`, and a dead `time.strftime` line. All fixed; the DOM test became a permanent regression gate (below).
+- **Wave 15 — status strip repair + test gate** — streaming/turn status ("Working…", `model · 1.2s · 42 tok`) moved into its own `#status-stream` slot: previously it overwrote `#status-left`/`#status-right`, destroying the live chip bar after the first agent turn and never rebuilding it. `npm run test:dom` is now the standard pre-push check for any frontend change.
+
+## Testing
+
+Frontend changes are verified at the **DOM level**, not just the API level:
+
+```bash
+npm install        # once — dev dependency: jsdom
+npm run test:dom   # server must be running (default http://127.0.0.1:8787)
+```
+
+`scripts/dom-smoke.js` loads the real served page, executes every script
+(including the lazily loaded `w6.js`/`w8.js`) in jsdom, and asserts: no
+uncaught errors, no unhandled rejections, both feature modules
+initialized, the quick-actions row and status-bar chips built, the boot
+splash gone, and the event loop still alive (an infinite loop in page
+code would time the test out).
 
 ## Keyboard
 
