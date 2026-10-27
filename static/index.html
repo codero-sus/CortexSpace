@@ -10,9 +10,9 @@
 <title>CortexSpace</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/static/manifest.json">
-<link rel="stylesheet" href="/static/styles.css?v=6">
-<link rel="stylesheet" href="/static/styles-w6.css?v=6">
-<link rel="stylesheet" href="/static/styles-w8.css?v=6">
+<link rel="stylesheet" href="/static/styles.css?v=7">
+<link rel="stylesheet" href="/static/styles-w6.css?v=7">
+<link rel="stylesheet" href="/static/styles-w8.css?v=7">
 </head>
 <body>
 <!-- boot splash (removed after first paint) -->
@@ -282,6 +282,7 @@
           </div>
         </div>
         <div class="composer-foot">
+          <span id="status-stream" class="status-stream hidden"></span>
           <span id="status-left">Ready</span>
           <span id="status-budget" class="status-chip hidden" title="Today's token usage vs budget"></span>
           <span id="status-right"></span>
@@ -980,8 +981,8 @@
 <!-- toasts -->
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
-<script src="/static/js/md.js?v=6"></script>
-<script src="/static/js/app.js?v=6"></script>
+<script src="/static/js/md.js?v=7"></script>
+<script src="/static/js/app.js?v=7"></script>
 <!-- wave 14: w6/w8 load after first paint so the shell renders as fast as possible;
      both modules self-init based on document.readyState, so late loading is safe -->
 <script>
@@ -991,7 +992,7 @@
     window.__lateLoaded = true;
     ["w6", "w8"].forEach(function (n) {
       var s = document.createElement("script");
-      s.src = "/static/js/" + n + ".js?v=6";
+      s.src = "/static/js/" + n + ".js?v=7";
       s.onerror = function () { console.warn(n + ".js failed to load"); };
       document.head.appendChild(s);
     });

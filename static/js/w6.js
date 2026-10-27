@@ -195,6 +195,8 @@
   function buildStatusBar() {
     const left = $("#status-left"), right = $("#status-right");
     if (!left || !right) return;
+    left.textContent = ""; // clear the static "Ready" placeholder
+    right.textContent = "";
     const L = el("span", { class: "w6-chips" });
     const R = el("span", { class: "w6-chips" });
     L.append(

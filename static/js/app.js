@@ -1082,7 +1082,7 @@
             break;
           case "tool_call": {
             appendToolCard({ id: data.id, name: data.name, arguments: data.arguments, description: data.description });
-            $("#status-left").textContent = "Working… " + (data.description || data.name);
+            setStatusStream("Working… " + (data.description || data.name));
             break;
           }
           case "approval_request":
@@ -1155,10 +1155,11 @@
         renderChatList();
         const st = state.messages[state.messages.length - 1];
         if (st && st.role === "assistant" && st.meta) {
-          $("#status-left").textContent = "Ready";
-          $("#status-right").textContent =
+          setStatusStream(
             `${st.meta.model || ""} · ${st.meta.duration_ms != null ? (st.meta.duration_ms / 1000).toFixed(1) + "s" : ""}` +
-            `${st.meta.usage ? " · " + ((st.meta.usage.prompt_tokens || 0) + (st.meta.usage.completion_tokens || 0)) + " tok" : ""}`;
+            `${st.meta.usage ? " · " + ((st.meta.usage.prompt_tokens || 0) + (st.meta.usage.completion_tokens || 0)) + " tok" : ""}`,
+            8000 // stats linger 8s, then the live chips come back
+          );
         }
       } catch { /* keep live state */ }
     }
@@ -1181,6 +1182,25 @@
   }
 
   const _streamGuard = (e) => { e.preventDefault(); e.returnValue = ""; };
+  let _streamStatTimer = null;
+  /* Streaming/turn status lives in its own slot — writing into #status-left
+     or #status-right would destroy the w6 chip groups (they never rebuild). */
+  function setStatusStream(text, ms) {
+    const s = $("#status-stream");
+    if (!s) return;
+    const foot = s.parentElement;
+    if (_streamStatTimer) { clearTimeout(_streamStatTimer); _streamStatTimer = null; }
+    if (text) {
+      s.textContent = text;
+      s.classList.remove("hidden");
+      foot && foot.classList.add("busy");
+      if (ms) _streamStatTimer = setTimeout(() => setStatusStream(null), ms);
+    } else {
+      s.textContent = "";
+      s.classList.add("hidden");
+      foot && foot.classList.remove("busy");
+    }
+  }
   function setStreaming(on) {
     state.streaming = on;
     if (on) window.addEventListener("beforeunload", _streamGuard);
@@ -1189,7 +1209,7 @@
     btn.classList.toggle("streaming", on);
     btn.disabled = on ? false : !$("#composer").value.trim();
     $("#composer-hint").textContent = on ? "Agent is working…  (button = stop)" : "Enter to send · Shift+Enter for a new line";
-    $("#status-left").textContent = on ? "Working…" : "Ready";
+    setStatusStream(on ? "Working…" : null);
     if (!on) state.controller = null;
   }
 

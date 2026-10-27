@@ -1,0 +1,12 @@
+{
+  "name": "cortexspace-webui",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CortexSpace — DOM smoke test (vanilla JS app, no build step; the test needs the server running)",
+  "scripts": {
+    "test:dom": "node scripts/dom-smoke.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.3"
+  }
+}
