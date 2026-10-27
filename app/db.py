@@ -152,22 +152,22 @@ class DB:
 
     def list_chats(self, include_archived: bool = False):
         where = "" if include_archived else "WHERE c.archived=0"
+        # one query for everything — previews ride a correlated subquery
+        # instead of a per-chat round trip (N+1 → 1)
         rows = self._conn().execute(
             f"""
             SELECT c.id, c.title, c.provider, c.model, c.created_at, c.updated_at, c.pin, c.archived,
-                   (SELECT COUNT(*) FROM messages m WHERE m.chat_id=c.id AND m.role='user') AS user_msgs
+                   (SELECT COUNT(*) FROM messages m WHERE m.chat_id=c.id AND m.role='user') AS user_msgs,
+                   (SELECT content FROM messages m WHERE m.chat_id=c.id AND m.role IN ('user','assistant')
+                    ORDER BY m.seq DESC LIMIT 1) AS last_content
             FROM chats c {where} ORDER BY c.pin DESC, c.updated_at DESC
             """
         ).fetchall()
         out = []
         for r in rows:
             d = dict(r)
-            prev = self._conn().execute(
-                "SELECT content FROM messages WHERE chat_id=? AND role IN ('user','assistant') "
-                "ORDER BY seq DESC LIMIT 1",
-                (r["id"],),
-            ).fetchone()
-            d["preview"] = (prev["content"][:120].replace("\n", " ").strip() if prev else "")
+            last = d.pop("last_content") or ""
+            d["preview"] = last[:120].replace("\n", " ").strip()
             out.append(d)
         return out
 
@@ -388,7 +388,7 @@ class DB:
                    AVG(CASE WHEN duration_ms > 0 AND completion_tokens > 0
                             THEN completion_tokens * 1000.0 / duration_ms END) AS avg_tps
             FROM bench GROUP BY provider, model
-            ORDER BY avg_tps DESC
+            ORDER BY avg_tps IS NULL, avg_tps DESC
             """
         ).fetchall()
         out = []
@@ -430,11 +430,12 @@ class DB:
             if exists:
                 continue
             c.execute(
-                "INSERT INTO chats(id,title,provider,model,created_at,updated_at,pin) VALUES(?,?,?,?,?,?,?)",
+                "INSERT INTO chats(id,title,provider,model,created_at,updated_at,pin,archived) VALUES(?,?,?,?,?,?,?,?)",
                 (
                     ch["id"], ch.get("title", "Imported chat"), ch.get("provider") or "",
                     ch.get("model") or "", ch.get("created_at") or now_ms(),
                     ch.get("updated_at") or now_ms(), 1 if ch.get("pin") else 0,
+                    1 if ch.get("archived") else 0,
                 ),
             )
             for m in ch.get("messages", []):
@@ -565,11 +566,12 @@ class DB:
         words = 0
         for r in c.execute("SELECT content FROM messages").fetchall():
             words += len((r["content"] or "").split())
-        per_provider: Dict[str, int] = {}
+        per_provider: Dict[str, dict] = {}
         for r in c.execute(
-            "SELECT provider, SUM(prompt_tokens+completion_tokens) n FROM usage_log WHERE provider!='' GROUP BY provider ORDER BY n DESC"
+            "SELECT provider, SUM(prompt_tokens+completion_tokens) n, COUNT(*) m "
+            "FROM usage_log WHERE provider!='' GROUP BY provider ORDER BY n DESC"
         ).fetchall():
-            per_provider[r["provider"]] = r["n"]
+            per_provider[r["provider"]] = {"tokens": r["n"], "messages": r["m"]}
         today_start = day_start(now_ms())
         toks_today = c.execute(
             "SELECT COALESCE(SUM(prompt_tokens+completion_tokens),0) n FROM usage_log WHERE created_at>=?",
@@ -579,13 +581,14 @@ class DB:
             "SELECT COUNT(*) n FROM messages WHERE created_at>=?", (today_start,)
         ).fetchone()["n"]
         # weekday x hour heatmap (last 7 days)
+        # epoch day 0 = Thursday → shift so row 0 = Monday (frontend label order)
         heatmap = [[0] * 24 for _ in range(7)]
         week_start = today_start - 6 * 86400000
         for r in c.execute(
             "SELECT created_at FROM messages WHERE created_at>=?", (week_start,)
         ).fetchall():
             d = r["created_at"]
-            dow = (d // 86400000) % 7
+            dow = ((d // 86400000) + 3) % 7
             hour = int(time.strftime("%H", time.gmtime(d / 1000)))
             heatmap[dow][hour] += 1
         # streak: consecutive days (ending today or yesterday) with >=1 message
