@@ -63,9 +63,11 @@ _seed_workspace()
 
 app = FastAPI(title="CortexSpace", version=VERSION)
 app.add_middleware(GZipMiddleware, minimum_size=1024)  # ~70% smaller transfers
+# CORS: the UI is same-origin, so no wildcard needed — any cross-origin
+# caller would only be able to read public endpoints anyway.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8787", "http://127.0.0.1:8787"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -83,6 +85,14 @@ async def _security_headers(request: Request, call_next):
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    # the UI is a static SPA — no inline scripts, no remote origins needed.
+    # 'unsafe-inline' for styles only (theme classes are injected inline).
+    resp.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; "
+        "frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+    )
     return resp
 
 
@@ -198,6 +208,13 @@ class FileRenameIn(BaseModel):
     dst: str
 
 
+class FileEditIn(BaseModel):
+    path: str
+    old: str
+    new: str
+    replace_all: bool = False
+
+
 class GlobalSearchIn(BaseModel):
     q: str
     regex: bool = False
@@ -233,10 +250,9 @@ async def providers_info():
 
 
 def _public_settings(s: Settings) -> dict:
-    d = s.__dict__.copy()
-    if d.get("openrouter_api_key"):
-        d["openrouter_api_key"] = d["openrouter_api_key"]  # local app: keep visible for editing
-    return d
+    # local single-user app: settings (including API keys) are returned
+    # verbatim so the Settings panel can show and edit them
+    return s.__dict__.copy()
 
 
 @app.get("/api/settings")
@@ -477,10 +493,9 @@ async def run_chat_stream(cid: str, db, content: str, context: list | None, mode
                 ttft = int((time.monotonic() - t0) * 1000)
             yield {"type": "token", "text": ev["text"]}
         elif ev["type"] == "done":
-            u = ev.get("usage")
-            if u is not None:
-                usage = {"prompt_tokens": getattr(u, "prompt_tokens", 0) or 0,
-                         "completion_tokens": getattr(u, "completion_tokens", 0) or 0}
+            u = ev.get("usage") or {}
+            usage = {"prompt_tokens": int(u.get("prompt_tokens", 0) or 0),
+                     "completion_tokens": int(u.get("completion_tokens", 0) or 0)}
     yield {
         "type": "done",
         "usage": usage,
@@ -505,24 +520,18 @@ async def chat_send(cid: str, body: MessageIn):
     db.add_message(cid, "user", content, {"context": body.context or []})
     db.touch_chat(cid)
 
-    # auto-title from first user message
-    chat = db.get_chat(cid)
-    if chat and chat["title"] in ("New chat", ""):
-        db.rename_chat(cid, content[:60].replace("\n", " ").strip() or "New chat")
+    # auto-title from first user message (handles the 60-char ellipsis)
+    db.auto_title(cid, content)
 
     if (body.mode or "agent") == "chat":
-        async def engine():
-            async for ev in run_chat_stream(cid, db, content, body.context, body.model):
-                yield ev
+        stream_gen = run_chat_stream(cid, db, content, body.context, body.model)
     else:
-        async def engine():
-            async for ev in agent.run_agent(cid, db, content, body.context, model_override=body.model):
-                yield ev
+        stream_gen = agent.run_agent(cid, db, content, body.context, model_override=body.model)
 
     async def gen():
         _stream_bump(+1)
         try:
-            async for ev in engine():
+            async for ev in stream_gen:
                 if ev["type"] == "done":
                     u = ev.get("usage") or {}
                     try:
@@ -890,9 +899,9 @@ async def files_entries(path: str = ""):
 
 
 @app.get("/api/files/read")
-async def files_read(path: str):
+async def files_read(path: str, offset: int | None = None, limit: int | None = None):
     try:
-        return worksp.read_file(path)
+        return worksp.read_file(path, offset=offset, limit=limit)
     except Exception as e:  # noqa: BLE001
         raise _fs_error(e)
 
@@ -946,6 +955,14 @@ async def files_rename(body: FileRenameIn):
         raise _fs_error(e)
 
 
+@app.post("/api/files/edit")
+async def files_edit(body: FileEditIn):
+    try:
+        return worksp.edit_file(body.path, body.old, body.new, replace_all=body.replace_all)
+    except Exception as e:  # noqa: BLE001
+        raise _fs_error(e)
+
+
 @app.post("/api/files/upload")
 async def files_upload(file: UploadFile = File(...), dir: str = Form("")):
     raw_name = os.path.basename(file.filename or "upload.bin").strip()
@@ -954,7 +971,8 @@ async def files_upload(file: UploadFile = File(...), dir: str = Form("")):
     if rel_dir and ".." in rel_dir.split("/"):
         raise HTTPException(400, "invalid directory")
     rel = f"{rel_dir}/{name}" if rel_dir else name
-    data = await file.read(25 * 1024 * 1024)  # 25MB cap
+    # read cap+1 so an oversize file is rejected, not silently truncated
+    data = await file.read(25 * 1024 * 1024 + 1)
     if len(data) > 25 * 1024 * 1024:
         raise HTTPException(413, "file too large (25MB cap)")
     try:
@@ -991,18 +1009,20 @@ async def workspace_reset():
 
     n_files = 0
     try:
-        for _root, _dirs, files in os.walk(WORKSPACE_DIR):
+        # topdown=False: children first, so every subdir is empty when we
+        # reach it — one clean bottom-up sweep instead of leftover nests
+        for root, dirs, files in os.walk(WORKSPACE_DIR, topdown=False):
             for f in files:
                 try:
-                    os.remove(os.path.join(_root, f))
+                    os.remove(os.path.join(root, f))
                     n_files += 1
                 except OSError:
                     pass
-        for d in list(_dirs):
-            try:
-                _shutil.rmtree(os.path.join(_root, d), ignore_errors=True)
-            except Exception:  # noqa: BLE001
-                pass
+            for d in dirs:
+                try:
+                    _shutil.rmtree(os.path.join(root, d), ignore_errors=True)
+                except Exception:  # noqa: BLE001
+                    pass
     except Exception:  # noqa: BLE001
         pass
     vdir = getattr(worksp, "VERSIONS_DIR", None)

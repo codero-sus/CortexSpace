@@ -91,12 +91,15 @@ def tree(depth: int = 3) -> List[dict]:
     return walk("", 1)
 
 
-def read_file(rel: str, max_bytes: int = MAX_READ_BYTES) -> dict:
+def read_file(rel: str, max_bytes: int = MAX_READ_BYTES, offset: int | None = None,
+              limit: int | None = None) -> dict:
+    """Read a text file. `offset`/`limit` slice by line (1-based offset, like sed)."""
     full = _resolve(rel)
     if not os.path.isfile(full):
         raise WorkspaceError(f"Not a file: {rel}")
     size = os.path.getsize(full)
-    raw = open(full, "rb").read(max_bytes + 1)
+    with open(full, "rb") as f:
+        raw = f.read(max_bytes + 1)
     truncated = len(raw) > max_bytes
     raw = raw[:max_bytes]
     try:
@@ -105,6 +108,13 @@ def read_file(rel: str, max_bytes: int = MAX_READ_BYTES) -> dict:
     except UnicodeDecodeError:
         text = ""
         binary = True
+    total_lines = 0
+    if offset or limit:
+        lines = text.splitlines(keepends=True)
+        total_lines = len(lines)
+        start = max(0, int(offset or 0))
+        end = None if limit is None else start + max(0, int(limit))
+        text = "".join(lines[start:end])
     return {
         "path": rel,
         "size": size,
@@ -112,7 +122,30 @@ def read_file(rel: str, max_bytes: int = MAX_READ_BYTES) -> dict:
         "binary": binary,
         "mtime": os.stat(full).st_mtime,
         "content": text,
+        "offset": offset,
+        "limit": limit,
+        "total_lines": total_lines,
     }
+
+
+def edit_file(rel: str, old: str, new: str, replace_all: bool = False) -> dict:
+    """Replace an exact text fragment in a workspace file (literal match)."""
+    full = _resolve(rel)
+    if not os.path.isfile(full):
+        raise WorkspaceError(f"Not a file: {rel}")
+    if not old:
+        raise WorkspaceError("old text must not be empty")
+    with open(full, "r", encoding="utf-8") as f:
+        content = f.read()
+    n = content.count(old)
+    if n == 0:
+        raise WorkspaceError(f"Text not found in {rel}")
+    updated = content.replace(old, new) if replace_all else content.replace(old, new, 1)
+    save_version(rel)
+    with open(full, "w", encoding="utf-8") as f:
+        f.write(updated)
+    return {"path": rel, "replacements": n if replace_all else 1,
+            "occurrences": n, "size": os.path.getsize(full)}
 
 
 def write_file(rel: str, content: str, create_dirs: bool = True) -> dict:
@@ -152,7 +185,13 @@ def save_version(rel: str) -> None:
     vdir = _vdir(rel)
     os.makedirs(vdir, exist_ok=True)
     ts = int(time.time() * 1000)
-    with open(os.path.join(vdir, f"{ts}.txt"), "w", encoding="utf-8") as f:
+    # avoid same-millisecond collisions (rapid successive writes)
+    fname = f"{ts}.txt"
+    n = 0
+    while os.path.exists(os.path.join(vdir, fname)):
+        n += 1
+        fname = f"{ts}_{n}.txt"
+    with open(os.path.join(vdir, fname), "w", encoding="utf-8") as f:
         f.write(content)
     # cap: keep the newest MAX_VERSIONS
     try:

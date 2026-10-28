@@ -30,7 +30,7 @@ requirements: fastapi, uvicorn, httpx   (installed into .venv automatically)
 | **AI providers** | OpenAI / Anthropic / local | **Ollama, OpenRouter, any OpenAI-compatible API** (Groq, LM Studio, vLLM…) + built-in offline demo |
 | **Chat** | Sessions, streaming | Sessions, streaming, **token & latency stats per turn**, copy/regenerate, Markdown export |
 | **Workspace files** | Yes | Yes — tree, editor with Markdown preview, download, agent read/write/search |
-| **Agent tools** | bash, python, browser, search… | file tools, workspace search, web search, page fetch, Python execution |
+| **Agent tools** | bash, python, browser, search… | 11 tools: file read (offset/limit), write, edit, delete, search, web search, page fetch, Python execution, version list/restore |
 | **Safety model** | Tool approvals | Tool approvals — every write/delete/code run shows an **Approve/Deny card** (auto-approve optional) |
 | **Web search** | SearXNG (required) | DuckDuckGo out of the box, SearXNG optional |
 | **Browser/companion** | Companion app for page context | Built-in Browser panel: load a page, "Add page to chat" |
@@ -47,8 +47,9 @@ notes/todo.md         snippets/fib.py
 notes/ideas.md
 ```
 
-The agent can read, write, search and (optionally) execute against this folder.
-All paths are strictly contained — no `..`, no absolute paths, ever.
+The agent can read, write, search, edit and (optionally) execute against this folder.
+All paths are strictly contained — no `..`, no absolute paths, ever. Every write
+keeps a version snapshot (last 20 per file) that you can diff and restore.
 
 ## Talking to the agent
 
@@ -244,6 +245,19 @@ the composer) — and 35 new command-palette entries (`⌘K`).
 - `cortexspace.help()` / `cortexspace.dump()` / `cortexspace.prefs` in the browser console
 - Copy-diagnostics, in-memory request log (`GET /api/requests`), version footer
 
+**Agent tool set (11 tools)**
+- `list_workspace` — tree of files and folders
+- `read_file` — read a file with optional `offset`/`limit` for line ranges
+- `write_file` — create or overwrite a file (snapshots the previous version)
+- `edit_file` — literal string replacement (dangerous: shows approval card)
+- `delete_file` — remove a file (dangerous: shows approval card)
+- `search_workspace` — full-text search across all workspace files
+- `web_search` — DuckDuckGo or SearXNG search
+- `fetch_page` — fetch and convert a web page to text (SSRF-guarded)
+- `run_python` — execute Python in a subprocess (dangerous: shows approval card)
+- `list_versions` — show saved version snapshots for a file
+- `restore_version` — restore a file to a previous snapshot (dangerous)
+
 ## Wave 6 — 500+ more
 
 The long tail, squared. **503 base items** (plus ~58 option variants: 8 accent
@@ -390,6 +404,13 @@ team/enterprise battlegrounds, not a personal workspace's.
 - **Wave 15 — status strip repair + test gate** — streaming/turn status ("Working…", `model · 1.2s · 42 tok`) moved into its own `#status-stream` slot: previously it overwrote `#status-left`/`#status-right`, destroying the live chip bar after the first agent turn and never rebuilding it. `npm run test:dom` is now the standard pre-push check for any frontend change.
 
 ## Testing
+
+Python backend is verified with a self-contained test suite — no server
+required:
+
+```bash
+.venv/bin/python -m pytest tests/test_core.py -v    # 59 tests
+```
 
 Frontend changes are verified at the **DOM level**, not just the API level:
 

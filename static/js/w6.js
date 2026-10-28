@@ -1644,12 +1644,17 @@
     const days = $("#w6i-days .w6-days");
     if (days) {
       days.innerHTML = "";
-      const hm = s.heatmap || [];
+      // backend sends per_day_messages as [[ts_ms, count], ...] — key by local date
+      const byDay = {};
+      (s.per_day_messages || []).forEach(([ts, n]) => {
+        const k = new Date(ts).toLocaleDateString("sv-SE"); // sv-SE → YYYY-MM-DD
+        byDay[k] = n;
+      });
       for (let i = 13; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000);
-        const v = (s.by_day && s.by_day[d.toISOString().slice(0, 10)]) || null;
-        const n = v ? (typeof v === "number" ? v : (v.msgs || 0)) : (hm.find((h) => String(h.day) === d.toISOString().slice(0, 10)) || {}).n || 0;
-        const dot = el("span", { class: "w6-day" + (n ? " on" : ""), title: d.toDateString() + ": " + (n || 0), style: n ? "opacity:" + Math.min(1, 0.25 + n / 12) : "" });
+        const k = d.toLocaleDateString("sv-SE");
+        const n = byDay[k] || 0;
+        const dot = el("span", { class: "w6-day" + (n ? " on" : ""), title: d.toDateString() + ": " + n, style: n ? "opacity:" + Math.min(1, 0.25 + n / 12) : "" });
         days.append(dot);
       }
     }

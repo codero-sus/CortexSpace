@@ -162,7 +162,23 @@ async def fetch_page(url: str, max_chars: int = 24_000) -> dict:
     if not parsed.hostname:
         raise RuntimeError("URL has no hostname")
     await asyncio.to_thread(_assert_public_host, parsed.hostname)
-    resp = await _http_get(url, headers={"User-Agent": UA})
+    # follow redirects manually — auto-follow would let a public page bounce
+    # us onto an internal address (SSRF bypass) without re-checking
+    for _ in range(5):  # max 5 hops
+        resp = await _http_get(url, headers={"User-Agent": UA}, follow=False)
+        if resp.is_redirect:
+            loc = resp.headers.get("location", "")
+            if not loc:
+                break
+            url = urllib.parse.urljoin(url, loc)
+            parsed = urllib.parse.urlparse(url)
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                raise RuntimeError(f"Bad redirect target: {loc!r}")
+            await asyncio.to_thread(_assert_public_host, parsed.hostname)
+            continue
+        break
+    else:
+        raise RuntimeError("too many redirects")
     resp.raise_for_status()
     ctype = resp.headers.get("content-type", "")
     if "html" not in ctype and "text" not in ctype:

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import signal
 import subprocess
 import sys
 import time
@@ -44,12 +46,37 @@ async def _list_workspace(args: dict) -> str:
 
 
 async def _read_file(args: dict) -> str:
-    data = worksp.read_file(args["path"])
+    data = worksp.read_file(args["path"], offset=args.get("offset"), limit=args.get("limit"))
     if data["binary"]:
         return f"[binary file, {data['size']} bytes — no text content]"
     head = data["content"]
     note = f"\n[... truncated, {data['size']} bytes total]" if data["truncated"] else ""
+    if data.get("total_lines"):
+        note += (f"\n[lines {data['offset'] + 1}-{data['offset'] + (data['limit'] or data['total_lines'])}"
+                 f" of {data['total_lines']}]")
     return f"# {args['path']}\n{head}{note}"
+
+
+async def _edit_file(args: dict) -> str:
+    res = worksp.edit_file(args["path"], args["old"], args.get("new", ""),
+                           replace_all=bool(args.get("replace_all", False)))
+    return f"Edited {res['path']} ({res['replacements']} of {res['occurrences']} occurrence(s) replaced)."
+
+
+async def _list_versions(args: dict) -> str:
+    vs = worksp.list_versions(args["path"])
+    if not vs:
+        return f"No saved versions for {args['path']}."
+    lines = [f"{len(vs)} saved version(s) of {args['path']}:"]
+    for v in vs[:10]:
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(v["created_at"] / 1000))
+        lines.append(f"  {v['version']} — {worksp.human_size(v['size'])} — {when}")
+    return "\n".join(lines)
+
+
+async def _restore_version(args: dict) -> str:
+    res = worksp.restore_version(args["path"], args["version"])
+    return f"Restored {res['path']} to version {args['version']}."
 
 
 async def _write_file(args: dict) -> str:
@@ -97,11 +124,19 @@ async def _run_python(args: dict) -> str:
     proc = await asyncio.create_subprocess_exec(
         sys.executable, "-I", "-c", code,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        start_new_session=True,  # own process group — kill takes the whole tree
     )
     try:
         out, err = await asyncio.wait_for(proc.communicate(), timeout=30)
     except asyncio.TimeoutError:
-        proc.kill()
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, OSError):
+            proc.kill()
+        try:
+            await proc.wait()
+        except Exception:  # noqa: BLE001
+            pass
         return "[run_python timed out after 30s]"
     elapsed = int((time.monotonic() - started) * 1000)
     so = out.decode("utf-8", "replace")[:8000]
@@ -127,9 +162,27 @@ TOOLS: List[ToolSpec] = [
     ),
     ToolSpec(
         "read_file",
-        "Read a text file from the workspace. Returns its content (truncated for very large files).",
-        {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+        "Read a text file from the workspace. Returns its content (truncated for very large files). "
+        "Use offset (1-based start line) and limit (max lines) to read just a range of a big file.",
+        {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "offset": {"type": "integer", "description": "1-based start line (default: beginning)"},
+            "limit": {"type": "integer", "description": "max number of lines to return"},
+        }, "required": ["path"]},
         run=_read_file,
+    ),
+    ToolSpec(
+        "edit_file",
+        "Replace an exact text fragment in a workspace file. `old` is matched literally; "
+        "set replace_all to replace every occurrence, otherwise only the first.",
+        {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "old": {"type": "string"},
+            "new": {"type": "string"},
+            "replace_all": {"type": "boolean"},
+        }, "required": ["path", "old", "new"]},
+        dangerous=True,
+        run=_edit_file,
     ),
     ToolSpec(
         "write_file",
@@ -157,6 +210,19 @@ TOOLS: List[ToolSpec] = [
         "Case-insensitive text search across all workspace files. Returns matching files and lines.",
         {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
         run=_search_workspace,
+    ),
+    ToolSpec(
+        "list_versions",
+        "List saved version snapshots of a workspace file (newest first). Versions are kept automatically on every write.",
+        {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+        run=_list_versions,
+    ),
+    ToolSpec(
+        "restore_version",
+        "Restore a workspace file to a previous saved version (version id from list_versions).",
+        {"type": "object", "properties": {"path": {"type": "string"}, "version": {"type": "string"}}, "required": ["path", "version"]},
+        dangerous=True,
+        run=_restore_version,
     ),
     ToolSpec(
         "web_search",
@@ -207,7 +273,16 @@ def describe(spec: ToolSpec, args: dict) -> str:
         size = len(a.get("content", ""))
         return f"Write {worksp.human_size(size)} to `{a.get('path','?')}`"
     if spec.name == "read_file":
-        return f"Read `{a.get('path','?')}`"
+        rng = ""
+        if a.get("offset"):
+            rng = f" lines {a['offset']}" + (f"-{a['offset'] + a['limit']}" if a.get("limit") else "+")
+        return f"Read `{a.get('path','?')}`{rng}"
+    if spec.name == "edit_file":
+        return f"Edit `{a.get('path','?')}` ({'all' if a.get('replace_all') else 'first'} match)"
+    if spec.name == "list_versions":
+        return f"List versions of `{a.get('path','?')}`"
+    if spec.name == "restore_version":
+        return f"Restore `{a.get('path','?')}` to version {a.get('version','?')}"
     if spec.name == "list_workspace":
         return f"List `{a.get('path','') or 'workspace root'}`"
     if spec.name == "delete_file":

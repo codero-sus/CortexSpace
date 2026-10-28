@@ -41,14 +41,17 @@ def resolve_approval(aid: str, decision: str) -> bool:
         return False
     a["decision"] = decision
     a["event"].set()
+    # the awaiting coroutine holds its own reference — safe to drop ours
+    _approvals.pop(aid, None)
     return True
 
 
 def cancel_all_approvals(decision: str = "denied") -> None:
-    for a in _approvals.values():
+    for aid, a in list(_approvals.items()):
         if a["decision"] is None:
             a["decision"] = decision
             a["event"].set()
+            _approvals.pop(aid, None)
 
 
 async def _await_approval(aid: str, spec_name: str) -> Optional[str]:
@@ -59,13 +62,71 @@ async def _await_approval(aid: str, spec_name: str) -> Optional[str]:
         await asyncio.wait_for(a["event"].wait(), timeout=APPROVAL_TIMEOUT_S)
     except asyncio.TimeoutError:
         a["decision"] = "timeout"
+        _approvals.pop(aid, None)
         return "timeout"
     return a["decision"] or "denied"
 
 
-def _strip_tool_calls_for_prompt(messages: list) -> list:
-    """Ollama accepts tool messages; OpenRouter too. Keep as-is (OpenAI style)."""
-    return messages
+def _build_history(messages: list, user_content: str) -> list:
+    """Convert stored messages into provider-ready history.
+
+    - skips the just-added user message (the caller appends it separately)
+    - attaches tool results to their assistant tool_calls message
+    - trims old tool outputs and caps total size for long chats
+    - drops orphaned tool messages after trimming
+    """
+    hist: list[dict] = []
+    for m in messages:
+        if m["role"] not in ("user", "assistant"):
+            continue
+        content = m["content"]
+        meta = m.get("meta") or {}
+        if m["role"] == "user":
+            hist.append({"role": "user", "content": content})
+        else:
+            msg: dict = {"role": "assistant", "content": content}
+            if meta.get("tool_calls"):
+                msg["tool_calls"] = meta["tool_calls"]
+            hist.append(msg)
+            for tr in meta.get("tool_results", []):
+                hist.append(
+                    {"role": "tool", "tool_call_id": tr["id"],
+                     "content": tr["output"], "_tr": True}
+                )
+
+    # the caller appended the new user message already — drop it from history
+    if hist and hist[-1].get("role") == "user" and hist[-1].get("content") == user_content:
+        hist.pop()
+
+    # efficiency: tool outputs are the bulky part of long chats — keep full
+    # detail only for the last two, shrink the older ones
+    _trs = [h for h in hist if h.get("_tr")]
+    _keep_full = {id(t) for t in _trs[-2:]}
+    for h in hist:
+        if h.get("_tr"):
+            h["content"] = h["content"][: 8000 if id(h) in _keep_full else 800]
+            del h["_tr"]
+
+    # efficiency: cap total history so long chats stay fast and cheap
+    HISTORY_BUDGET_CHARS = 48_000
+    _total = sum(len(h.get("content") or "") for h in hist)
+    _dropped = 0
+    while _total > HISTORY_BUDGET_CHARS and len(hist) > 2:
+        _dropped += 1
+        _total -= len(hist[0].get("content") or "")
+        hist.pop(0)
+    # never leave orphaned tool messages behind after trimming (their
+    # assistant tool_calls message was dropped)
+    cleaned: list[dict] = []
+    in_tool_group = False
+    for h in hist:
+        if h.get("role") == "tool":
+            if not in_tool_group:
+                continue
+        else:
+            in_tool_group = bool(h.get("tool_calls"))
+        cleaned.append(h)
+    return cleaned
 
 
 async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list[str] | None = None,
@@ -106,48 +167,8 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
                     parts.append(f"--- {p} ---\n[unreadable: {e}]")
         messages.append({"role": "system", "content": "\n\n".join(parts)})
 
-    # history (skip the just-added user message which the caller appends next)
-    hist: list[dict] = []
-    for m in db.list_messages(chat_id):
-        if m["role"] not in ("user", "assistant"):
-            continue
-        content = m["content"]
-        meta = m.get("meta") or {}
-        if m["role"] == "user":
-            hist.append({"role": "user", "content": content})
-        else:
-            msg: dict = {"role": "assistant", "content": content}
-            if meta.get("tool_calls"):
-                msg["tool_calls"] = meta["tool_calls"]
-            hist.append(msg)
-            for tr in meta.get("tool_results", []):
-                hist.append(
-                    {"role": "tool", "tool_call_id": tr["id"],
-                     "content": tr["output"], "_tr": True}
-                )
-
-    # efficiency: tool outputs are the bulky part of long chats — keep full
-    # detail only for the last two, shrink the older ones
-    _trs = [h for h in hist if h.get("_tr")]
-    _keep_full = {id(t) for t in _trs[-2:]}
-    for h in hist:
-        if h.get("_tr"):
-            h["content"] = h["content"][: 8000 if id(h) in _keep_full else 800]
-            del h["_tr"]
-
-    # efficiency: cap total history so long chats stay fast and cheap
-    HISTORY_BUDGET_CHARS = 48_000
-    _total = sum(len(h.get("content") or "") for h in hist)
-    _dropped = 0
-    while _total > HISTORY_BUDGET_CHARS and len(hist) > 2:
-        _dropped += 1
-        _total -= len(hist[0].get("content") or "")
-        hist.pop(0)
-    if _dropped:
-        messages.append({
-            "role": "system",
-            "content": f"(context management: {_dropped} oldest message(s) omitted to keep this request fast)",
-        })
+    # history (the just-added user message is dropped — appended at the end)
+    hist = _build_history(db.list_messages(chat_id), user_content)
     messages.extend(hist)
 
     messages.append({"role": "user", "content": user_content})
@@ -162,7 +183,7 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
     usage_total = {"prompt_tokens": 0, "completion_tokens": 0}
     iterations = 0
     assistant_started = False
-    final_text_parts: list[str] = []
+    stopped = False  # set when the loop exhausts max_steps without a final answer
     pending_tool_calls: list[dict] = []   # to persist on the assistant message
     pending_tool_results: list[dict] = []
 
@@ -308,7 +329,7 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
                 pending_tool_results.append({"id": c["id"], "name": c["name"], "ok": ok, "output": out_trim})
 
         else:
-            final_text_parts.append("\n\n_(stopped: max agent steps reached)_")
+            stopped = True
 
         # if the provider resolved a concrete model (e.g. Cortex LLMHoster
         # auto-picked the first loaded model), report the real one
@@ -317,7 +338,9 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
             model = resolved
 
         # persist the assistant turn
-        content = "".join(final_text_parts)
+        content = _final_text(messages)
+        if stopped and not content:
+            content = "_(stopped: max agent steps reached)_"
         if not content and not pending_tool_calls:
             content = "…"
         meta = {
@@ -332,7 +355,7 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
         }
         # NOTE: stream tokens were already forwarded live; the stored content
         # is the final assistant text accumulated across turns.
-        db.add_message(chat_id, "assistant", _final_text(messages), meta)
+        db.add_message(chat_id, "assistant", content, meta)
         db.touch_chat(chat_id, provider=s.provider, model=model)
 
         yield {
