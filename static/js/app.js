@@ -50,9 +50,14 @@
   const human = (n) => (n < 1024 ? n + "B" : n < 1048576 ? (n / 1024).toFixed(1) + "KB" : (n / 1048576).toFixed(1) + "MB");
 
   async function api(path, opts = {}) {
+    // only set Content-Type for requests that actually send a body
+    const headers = { ...(opts.headers || {}) };
+    if (opts.body && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
     const res = await fetch(path, {
-      headers: { "Content-Type": "application/json" },
       ...opts,
+      headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
     if (!res.ok) {
@@ -60,7 +65,10 @@
       try { msg = (await res.json()).detail || res.statusText; } catch { msg = res.statusText; }
       throw new Error(msg);
     }
-    return res.json();
+    // handle non-JSON responses gracefully (empty body, etc.)
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) return res.json();
+    return res.text();
   }
 
   async function ssePost(path, body, onEvent, signal) {

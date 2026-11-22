@@ -40,21 +40,43 @@ SEED_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 
 
 def _seed_workspace() -> None:
-    """Copy seed files into an empty workspace on first boot."""
+    """Copy seed files into an empty workspace on first boot.
+
+    Uses a lock file so concurrent first-boot processes don't both
+    try to copy seeds and corrupt the marker.
+    """
     marker = os.path.join(DATA_DIR, ".seeded")
     if os.path.exists(marker):
         return
-    if os.path.isdir(SEED_DIR):
-        for root, _dirs, files in os.walk(SEED_DIR):
-            for fn in files:
-                src = os.path.join(root, fn)
-                rel = os.path.relpath(src, SEED_DIR)
-                dst = os.path.join(WORKSPACE_DIR, rel)
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                if not os.path.exists(dst):
-                    shutil.copy2(src, dst)
-    with open(marker, "w") as f:
-        f.write("ok")
+    lock = os.path.join(DATA_DIR, ".seed-lock")
+    try:
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(fd)
+    except FileExistsError:
+        # another process is seeding — wait briefly for the marker
+        import time as _t
+        for _ in range(20):
+            if os.path.exists(marker):
+                return
+            _t.sleep(0.05)
+        return
+    try:
+        if os.path.isdir(SEED_DIR):
+            for root, _dirs, files in os.walk(SEED_DIR):
+                for fn in files:
+                    src = os.path.join(root, fn)
+                    rel = os.path.relpath(src, SEED_DIR)
+                    dst = os.path.join(WORKSPACE_DIR, rel)
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    if not os.path.exists(dst):
+                        shutil.copy2(src, dst)
+        with open(marker, "w") as f:
+            f.write("ok")
+    finally:
+        try:
+            os.remove(lock)
+        except OSError:
+            pass
 
 
 db = DB(data_path())
@@ -69,9 +91,11 @@ async def _lifespan(app: FastAPI):
     yield
     # close shared HTTP clients so connections drain cleanly on shutdown
     from . import webtools
-    from .providers.openai_compat import _close_shared_client as _close_provider_client
+    from .providers.openai_compat import _close_shared_client as _close_oai
+    from .providers.ollama import _close_shared_client as _close_ollama
     await webtools._close_shared_client()
-    await _close_provider_client()
+    await _close_oai()
+    await _close_ollama()
 
 
 app = FastAPI(title="CortexSpace", version=VERSION, lifespan=_lifespan)
@@ -551,6 +575,8 @@ async def chat_send(cid: str, body: MessageIn):
     content = body.content.strip()
     if not content:
         raise HTTPException(400, "empty message")
+    if len(content) > 50_000:
+        raise HTTPException(400, "message too long (50k char max)")
 
     db.add_message(cid, "user", content, {"context": body.context or []})
     db.touch_chat(cid)
@@ -1033,6 +1059,8 @@ async def workspace_zip():
     import io
     import zipfile
 
+    # stream the zip — write to a pipe so large workspaces don't
+    # accumulate the entire archive in memory
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, _dirs, files in os.walk(WORKSPACE_DIR):
@@ -1084,8 +1112,9 @@ async def file_raw(path: str):
         raise HTTPException(400, str(e))
     if not os.path.isfile(full):
         raise HTTPException(404, "not a file")
-    with open(full, "rb") as f:
-        data = f.read(8 * 1024 * 1024)
+    size = os.path.getsize(full)
+    if size > 8 * 1024 * 1024:
+        raise HTTPException(413, "file too large (8MB cap for raw download)")
     ext = os.path.splitext(full)[1].lower()
     mimes = {
         ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -1094,8 +1123,16 @@ async def file_raw(path: str):
         ".css": "text/css", ".js": "application/javascript", ".html": "text/html",
         ".pdf": "application/pdf", ".zip": "application/zip",
     }
-    return Response(
-        content=data,
+    # stream from disk in 64KB chunks — no 8MB buffer in memory
+    def _file_iter():
+        with open(full, "rb") as f:
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+    return StreamingResponse(
+        _file_iter(),
         media_type=mimes.get(ext, "application/octet-stream"),
         headers={"Content-Disposition": f'inline; filename="{os.path.basename(full)}"'},
     )

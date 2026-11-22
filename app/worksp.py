@@ -326,19 +326,21 @@ def search(query: str, max_results: int = 40, regex: bool = False,
             try:
                 if os.path.getsize(fp) > 512_000:
                     continue
-                text = open(fp, "r", encoding="utf-8", errors="ignore").read()
+                # stream lines instead of loading the whole file — saves memory
+                # on large text files and avoids double-pass
+                matches: list[dict] = []
+                match_count = 0
+                with open(fp, "r", encoding="utf-8", errors="ignore") as fh:
+                    for i, line in enumerate(fh, 1):
+                        if line_match(line):
+                            match_count += 1
+                            if len(matches) < 5:
+                                matches.append({"line": i, "text": line.strip()[:200]})
             except OSError:
                 continue
-            lines = text.splitlines()
-            if not any(line_match(l) for l in lines):
+            if match_count == 0:
                 continue
-            matches = []
-            for i, line in enumerate(lines):
-                if line_match(line):
-                    matches.append({"line": i + 1, "text": line.strip()[:200]})
-                    if len(matches) >= 5:
-                        break
-            hits.append({"path": rel, "count": sum(1 for l in lines if line_match(l)), "matches": matches})
+            hits.append({"path": rel, "count": match_count, "matches": matches})
             if len(hits) >= max_results:
                 return hits
     return hits

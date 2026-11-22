@@ -98,7 +98,30 @@ class SettingsStore:
             data = asdict(current)
             valid = {f for f in data}
             for k, v in patch.items():
-                if k in valid and v is not None:
+                if k not in valid or v is None:
+                    continue
+                # coerce types to match the dataclass field defaults
+                default_val = getattr(Settings(), k)
+                if isinstance(default_val, bool):
+                    data[k] = bool(v)
+                elif isinstance(default_val, int) and not isinstance(default_val, bool):
+                    try:
+                        data[k] = int(v)
+                    except (TypeError, ValueError):
+                        pass
+                elif isinstance(default_val, float):
+                    try:
+                        data[k] = float(v)
+                    except (TypeError, ValueError):
+                        pass
+                elif isinstance(default_val, str):
+                    data[k] = str(v)
+                elif isinstance(default_val, list):
+                    if isinstance(v, list):
+                        data[k] = v
+                    else:
+                        data[k] = [str(v)] if v else []
+                else:
                     data[k] = v
             nxt = Settings(**data)
             self._db.set_setting("settings", json.dumps(asdict(nxt)))
