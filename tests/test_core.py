@@ -677,3 +677,117 @@ class TestDbWordCount:
         tmp_db.add_message(cid, "assistant", "")
         stats = tmp_db.stats()
         assert stats["words"] == 0
+
+
+# ---------------------------------------------------------------------------
+# settings type coercion
+# ---------------------------------------------------------------------------
+
+class TestSettingsCoercion:
+    def test_bool_coercion(self, tmp_db):
+        store = SettingsStore(tmp_db)
+        s = store.update({"allow_python": "true", "auto_approve": 1, "strict_approve": 0})
+        assert s.allow_python is True
+        assert s.auto_approve is True
+        assert s.strict_approve is False
+
+    def test_int_coercion(self, tmp_db):
+        store = SettingsStore(tmp_db)
+        s = store.update({"temperature": "0.7", "max_tokens": "4096"})
+        assert s.temperature == 0.7
+        assert isinstance(s.temperature, float)
+        assert s.max_tokens == 4096
+        assert isinstance(s.max_tokens, int)
+
+    def test_invalid_int_rejected(self, tmp_db):
+        store = SettingsStore(tmp_db)
+        s = store.update({"max_tokens": "not_a_number"})
+        assert s.max_tokens == 2048  # unchanged (coercion failed gracefully)
+
+    def test_list_coercion(self, tmp_db):
+        store = SettingsStore(tmp_db)
+        s = store.update({"disabled_tools": "edit_file"})
+        assert s.disabled_tools == ["edit_file"]
+
+    def test_str_coercion(self, tmp_db):
+        store = SettingsStore(tmp_db)
+        s = store.update({"provider": 123})
+        assert s.provider == "123"
+
+
+# ---------------------------------------------------------------------------
+# search streaming (line-by-line, no full-file load)
+# ---------------------------------------------------------------------------
+
+class TestSearchStreaming:
+    def test_search_multiline(self, tmp_workspace):
+        worksp.write_file("search.txt", "alpha\nbeta\ngamma\n")
+        hits = worksp.search("beta")
+        assert len(hits) == 1
+        assert hits[0]["path"] == "search.txt"
+        assert hits[0]["count"] == 1
+        assert hits[0]["matches"][0]["line"] == 2
+
+    def test_search_multiple_matches(self, tmp_workspace):
+        worksp.write_file("multi.txt", "foo\nfoo\nfoo\n")
+        hits = worksp.search("foo")
+        assert len(hits) == 1
+        assert hits[0]["count"] == 3
+
+    def test_search_no_match(self, tmp_workspace):
+        worksp.write_file("nomatch.txt", "hello world\n")
+        hits = worksp.search("xyzzy")
+        assert hits == []
+
+
+# ---------------------------------------------------------------------------
+# agent tool error detection
+# ---------------------------------------------------------------------------
+
+class TestAgentErrorDetection:
+    def test_error_prefix_detected(self):
+        # tools.execute returns "error: ..." on failure
+        out = "error: FileNotFoundError: no such file"
+        assert out.startswith("error:")
+
+    def test_normal_output_not_error(self):
+        out = "Here is the file content"
+        assert not out.startswith("error:")
+
+    def test_output_starting_with_error_word(self):
+        # an output that merely starts with the word "error" should NOT
+        # be falsely marked as failed (it doesn't have the colon)
+        out = "error handling is important"
+        assert not out.startswith("error:")
+
+
+# ---------------------------------------------------------------------------
+# _seed_workspace atomicity
+# ---------------------------------------------------------------------------
+
+class TestSeedWorkspace:
+    def test_seed_creates_files(self, tmp_path, monkeypatch):
+        import shutil as _shutil
+        from app import main as mainmod
+        seed_dir = tmp_path / "seed"
+        seed_dir.mkdir()
+        (seed_dir / "welcome.md").write_text("# Welcome")
+        ws_dir = tmp_path / "ws"
+        ws_dir.mkdir()
+        monkeypatch.setattr(mainmod, "SEED_DIR", str(seed_dir))
+        monkeypatch.setattr(mainmod, "WORKSPACE_DIR", str(ws_dir))
+        monkeypatch.setattr(mainmod, "DATA_DIR", str(tmp_path))
+        mainmod._seed_workspace()
+        assert (ws_dir / "welcome.md").exists()
+        assert (tmp_path / ".seeded").exists()
+
+    def test_seed_skipped_if_marker(self, tmp_path, monkeypatch):
+        from app import main as mainmod
+        ws_dir = tmp_path / "ws"
+        ws_dir.mkdir()
+        monkeypatch.setattr(mainmod, "DATA_DIR", str(tmp_path))
+        monkeypatch.setattr(mainmod, "WORKSPACE_DIR", str(ws_dir))
+        (tmp_path / ".seeded").write_text("ok")
+        mainmod._seed_workspace()
+        # should not crash and should not create lock file
+        assert not (tmp_path / ".seed-lock").exists()

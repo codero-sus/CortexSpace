@@ -312,7 +312,10 @@ async def run_agent(chat_id: str, db: DB, user_content: str, context_paths: list
                 t_start = time.monotonic()
                 out = await tools.execute(c["name"], c.get("arguments") or {})
                 dur = int((time.monotonic() - t_start) * 1000)
-                ok = not out.startswith("error")
+                # tools.execute returns "error: ..." on failure — check the
+                # prefix more robustly (don't false-positive on output that
+                # merely starts with the word "error")
+                ok = not out.startswith("error:")
                 # keep context lean, UI shows the same (truncated) text
                 out_trim = out[:16000]
                 yield {

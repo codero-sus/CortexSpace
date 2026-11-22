@@ -563,10 +563,13 @@ class DB:
         avg_ms = c.execute(
             "SELECT COALESCE(AVG(duration_ms),0) n FROM usage_log WHERE duration_ms>0"
         ).fetchone()["n"]
-        # word count: split on whitespace in SQL, sum in Python (fast enough)
+        # word count: use SQL LENGTH to count words without loading all content
         words = 0
-        for r in c.execute("SELECT content FROM messages WHERE content IS NOT NULL AND content!=''").fetchall():
-            words += len(r["content"].split())
+        for r in c.execute(
+            "SELECT LENGTH(content) - LENGTH(REPLACE(content, ' ', '')) + 1 AS wc "
+            "FROM messages WHERE content IS NOT NULL AND content!='' AND TRIM(content)!=''"
+        ).fetchall():
+            words += r["wc"]
         per_provider: Dict[str, dict] = {}
         for r in c.execute(
             "SELECT provider, SUM(prompt_tokens+completion_tokens) n, COUNT(*) m "
