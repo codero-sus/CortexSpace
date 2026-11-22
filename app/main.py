@@ -61,7 +61,20 @@ db = DB(data_path())
 init_settings_store(db)
 _seed_workspace()
 
-app = FastAPI(title="CortexSpace", version=VERSION)
+import contextlib
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(app: FastAPI):
+    yield
+    # close shared HTTP clients so connections drain cleanly on shutdown
+    from . import webtools
+    from .providers.openai_compat import _close_shared_client as _close_provider_client
+    await webtools._close_shared_client()
+    await _close_provider_client()
+
+
+app = FastAPI(title="CortexSpace", version=VERSION, lifespan=_lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1024)  # ~70% smaller transfers
 # CORS: the UI is same-origin, so no wildcard needed — any cross-origin
 # caller would only be able to read public endpoints anyway.
@@ -244,15 +257,29 @@ async def health():
     }
 
 
+@app.get("/api/version")
+async def version_endpoint():
+    """Simple version endpoint — useful for the UI to check for updates."""
+    return {"version": VERSION, "name": "CortexSpace"}
+
+
 @app.get("/api/providers")
 async def providers_info():
     return {"providers": PROVIDER_INFO, "version": VERSION}
 
 
 def _public_settings(s: Settings) -> dict:
-    # local single-user app: settings (including API keys) are returned
-    # verbatim so the Settings panel can show and edit them
-    return s.__dict__.copy()
+    # local single-user app: settings are returned so the Settings panel
+    # can show and edit them. API keys are masked for display; the PUT
+    # endpoint still accepts full values when saving.
+    d = s.__dict__.copy()
+    for key in ("openrouter_api_key", "openai_api_key", "cortex_api_key"):
+        val = d.get(key) or ""
+        if val and len(val) > 8:
+            d[key] = f"{val[:4]}…{val[-4:]}"
+        else:
+            d[key] = val
+    return d
 
 
 @app.get("/api/settings")
@@ -262,6 +289,14 @@ async def get_settings():
 
 @app.put("/api/settings")
 async def put_settings(patch: dict):
+    # if a masked API key comes back unchanged, keep the stored real key
+    current = get_settings_holder().get()
+    for key in ("openrouter_api_key", "openai_api_key", "cortex_api_key"):
+        val = patch.get(key)
+        if val and "…" in val:
+            real = getattr(current, key, "") or ""
+            if val == f"{real[:4]}…{real[-4:]}" if real else val:
+                patch.pop(key)
     s = get_settings_holder().update(patch)
     return _public_settings(s)
 
@@ -671,6 +706,17 @@ async def db_vacuum():
 
 @app.get("/api/about")
 async def about():
+    # single walk: count files and sum sizes in one pass
+    ws_files = 0
+    ws_size = 0
+    for _root, _dirs, files in os.walk(WORKSPACE_DIR):
+        for f in files:
+            try:
+                ws_size += os.path.getsize(os.path.join(_root, f))
+                ws_files += 1
+            except OSError:
+                pass
+
     def dir_size(p: str) -> int:
         total = 0
         for root, _dirs, files in os.walk(p):
@@ -684,7 +730,6 @@ async def about():
     db_size = os.path.getsize(db.path) if os.path.exists(db.path) else 0
     versions_dir = getattr(worksp, "VERSIONS_DIR", "")
     versions_size = dir_size(versions_dir) if versions_dir else 0
-    ws_size = dir_size(WORKSPACE_DIR)
     s = get_settings_holder().get()
     return {
         "name": "CortexSpace",
@@ -692,7 +737,7 @@ async def about():
         "provider": s.provider,
         "model": s.provider_model(),
         "chats": len(db.list_chats()),
-        "workspace_files": sum(1 for _r, _d, fs in os.walk(WORKSPACE_DIR) for _f in fs),
+        "workspace_files": ws_files,
         "sizes": {
             "database": db_size,
             "workspace": ws_size,
@@ -1064,9 +1109,13 @@ async def files_delete(path: str):
         raise _fs_error(e)
 
 
+class FileSearchIn(BaseModel):
+    query: str
+
+
 @app.post("/api/files/search")
-async def files_search(body: dict):
-    q = (body.get("query") or "").strip()
+async def files_search(body: FileSearchIn):
+    q = body.query.strip()
     if not q:
         return {"hits": []}
     return {"hits": worksp.search(q, max_results=30)}
@@ -1092,6 +1141,11 @@ async def page_fetch(url: str):
 async def search_endpoint(q: str):
     from . import webtools
 
+    q = (q or "").strip()
+    if not q:
+        return JSONResponse({"error": "query is required"}, status_code=400)
+    if len(q) > 500:
+        return JSONResponse({"error": "query too long (500 char max)"}, status_code=400)
     s = get_settings_holder().get()
     try:
         return await webtools.web_search(q, searxng_url=s.searxng_url, ddg_enabled=s.ddg_enabled)

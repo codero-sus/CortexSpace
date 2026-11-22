@@ -23,10 +23,35 @@ UA = (
 
 _timeout = httpx.Timeout(12.0, connect=6.0)
 
+# Shared client for connection pooling — creating a new AsyncClient per request
+# wastes TCP/TLS handshakes. Reuse one client across all web calls.
+_shared_client: httpx.AsyncClient | None = None
+_client_lock = asyncio.Lock()
+
+
+async def _get_client() -> httpx.AsyncClient:
+    global _shared_client
+    if _shared_client is None or _shared_client.is_closed:
+        async with _client_lock:
+            if _shared_client is None or _shared_client.is_closed:
+                _shared_client = httpx.AsyncClient(
+                    timeout=_timeout, follow_redirects=False,
+                )
+    return _shared_client
+
 
 async def _http_get(url: str, headers: dict | None = None, follow: bool = True) -> httpx.Response:
-    async with httpx.AsyncClient(timeout=_timeout, follow_redirects=follow, headers=headers or {}) as client:
-        return await client.get(url)
+    client = await _get_client()
+    # follow_redirects must be set per-request on the shared client
+    return await client.get(url, headers=headers or None, follow_redirects=follow)
+
+
+async def _close_shared_client() -> None:
+    """Call on app shutdown to release the pooled connection."""
+    global _shared_client
+    if _shared_client is not None and not _shared_client.is_closed:
+        await _shared_client.aclose()
+        _shared_client = None
 
 
 # --------------------------------------------------------------------------
@@ -136,20 +161,34 @@ def _assert_public_host(hostname: str) -> None:
             raise RuntimeError(f"Blocked: {hostname} resolves to a private/internal address")
 
 
+_ENTITY_MAP = {
+    "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">",
+    "&quot;": '"', "&#x27;": "'", "&apos;": "'",
+    "&mdash;": "—", "&ndash;": "–", "&hellip;": "…",
+    "&copy;": "©", "&reg;": "®", "&trade;": "™",
+    "&bull;": "•", "&star;": "★", "&rarrow;": "→", "&larr;": "←",
+    "&deg;": "°", "&plusmn;": "±", "&times;": "×", "&divide;": "÷",
+    "&euro;": "€", "&pound;": "£", "&yen;": "¥", "&cent;": "¢",
+    "&sect;": "§", "&para;": "¶", "&middot;": "·", "&laquo;": "«",
+    "&raquo;": "»", "&lsquo;": "'", "&rsquo;": "'", "&ldquo;": '"',
+    "&rdquo;": '"', "&frac12;": "½", "&frac14;": "¼", "&frac34;": "¾",
+    "&sup2;": "²", "&sup3;": "³", "&alpha;": "α", "&beta;": "β",
+    "&gamma;": "γ", "&delta;": "δ", "&pi;": "π", "&lambda;": "λ",
+    "&mu;": "μ", "&sigma;": "σ", "&omega;": "ω", "&check;": "✓",
+    "&cross;": "✗", "&alert;": "⚠", "&info;": "ℹ",
+}
+
+
 def html_to_text(html: str, max_chars: int = 24_000) -> str:
     html = re.sub(r"(?is)<(script|style|noscript|svg|head)[^>]*>.*?</\1>", " ", html)
     html = re.sub(r"(?i)<br\s*/?>", "\n", html)
     html = re.sub(r"(?i)</(p|div|section|article|li|tr|h[1-6]|blockquote)>", "\n", html)
     text = re.sub(r"(?s)<[^>]+>", " ", html)
-    text = (
-        text.replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", '"')
-        .replace("&#x27;", "'")
-        .replace("&apos;", "'")
-    )
+    for entity, replacement in _ENTITY_MAP.items():
+        text = text.replace(entity, replacement)
+    # numeric entities: &#123; and &#x1F600;
+    text = re.sub(r"&#x([0-9a-fA-F]+);", lambda m: chr(int(m.group(1), 16)) if int(m.group(1), 16) < 0x110000 else "", text)
+    text = re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))) if 0 < int(m.group(1)) < 0x110000 else "", text)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s*\n+", "\n\n", text)
     return text.strip()[:max_chars]

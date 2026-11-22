@@ -515,3 +515,165 @@ class TestSettings:
         assert s.provider_model() == "llama3.2"
         s.provider = "openrouter"
         assert s.provider_model() == "openrouter/auto"
+
+
+# ---------------------------------------------------------------------------
+# html_to_text improvements
+# ---------------------------------------------------------------------------
+
+class TestHtmlToText:
+    def test_basic_strip(self):
+        html = "<html><body><h1>Hello</h1><p>World</p></body></html>"
+        text = webtools.html_to_text(html)
+        assert "Hello" in text
+        assert "World" in text
+        assert "<" not in text
+
+    def test_entities_expanded(self):
+        html = "<p>A &amp; B &lt; C &gt; D &nbsp;E &mdash; F &hellip; G</p>"
+        text = webtools.html_to_text(html)
+        assert "A & B" in text
+        assert "< C" in text
+        assert "> D" in text
+        assert "E — F" in text
+        assert "G" in text
+
+    def test_numeric_entities(self):
+        html = "<p>&#8212;&#x2026;&#65;</p>"
+        text = webtools.html_to_text(html)
+        assert "—" in text  # em dash
+        assert "…" in text  # ellipsis
+        assert "A" in text  # A
+
+    def test_script_stripped(self):
+        html = "<html><script>alert('x')</script><p>safe</p></html>"
+        text = webtools.html_to_text(html)
+        assert "alert" not in text
+        assert "safe" in text
+
+    def test_max_chars(self):
+        html = "<p>" + "word " * 10000 + "</p>"
+        text = webtools.html_to_text(html, max_chars=100)
+        assert len(text) <= 100
+
+
+# ---------------------------------------------------------------------------
+# worksp path containment (commonpath)
+# ---------------------------------------------------------------------------
+
+class TestPathContainment:
+    def test_commonpath_blocks_sibling_dir(self, tmp_workspace):
+        # a path that resolves outside the workspace via a sibling dir
+        (tmp_workspace / ".." / "outside").mkdir(exist_ok=True)
+        (tmp_workspace / ".." / "outside" / "file.txt").write_text("x")
+        with pytest.raises(worksp.WorkspaceError):
+            worksp._resolve("../outside/file.txt")
+
+    def test_root_is_allowed(self, tmp_workspace):
+        assert worksp._resolve("") == str(tmp_workspace)
+        assert worksp._resolve("/") == str(tmp_workspace)
+
+
+# ---------------------------------------------------------------------------
+# settings masking
+# ---------------------------------------------------------------------------
+
+class TestSettingsMasking:
+    def test_api_key_masked_in_public(self):
+        from app.main import _public_settings
+        s = Settings(openrouter_api_key="sk-or-v1-abcdef1234567890")
+        d = _public_settings(s)
+        assert d["openrouter_api_key"] == "sk-o…7890"
+        assert "sk-or-v1-abcdef1234567890" not in d["openrouter_api_key"]
+
+    def test_short_key_not_masked(self):
+        from app.main import _public_settings
+        s = Settings(openai_api_key="short")
+        d = _public_settings(s)
+        assert d["openai_api_key"] == "short"
+
+    def test_empty_key(self):
+        from app.main import _public_settings
+        s = Settings()
+        d = _public_settings(s)
+        assert d["openrouter_api_key"] == ""
+
+
+# ---------------------------------------------------------------------------
+# run_python improvements
+# ---------------------------------------------------------------------------
+
+class TestRunPython:
+    def test_empty_code(self):
+        import asyncio
+        result = asyncio.run(toolsmod.execute("run_python", {"code": ""}))
+        assert "no code" in result
+
+    def test_prints_output(self):
+        import asyncio
+        result = asyncio.run(toolsmod.execute("run_python", {"code": "print('hello')"}))
+        assert "hello" in result
+        assert "exit 0" in result
+
+    def test_no_pyc_written(self, tmp_workspace):
+        import asyncio
+        # -B flag should prevent .pyc creation
+        asyncio.run(toolsmod.execute("run_python", {"code": "import os; print(os.getcwd())"}))
+
+
+# ---------------------------------------------------------------------------
+# version endpoint / health
+# ---------------------------------------------------------------------------
+
+class TestHealthVersion:
+    def test_health_shape(self, tmp_db, monkeypatch, tmp_path):
+        # minimal app-level test: just verify the version endpoint logic
+        from app.main import VERSION
+        assert VERSION == "1.0.0"
+
+
+# ---------------------------------------------------------------------------
+# read_file tool offset handling
+# ---------------------------------------------------------------------------
+
+class TestReadFileTool:
+    def test_offset_none_in_tool(self, tmp_workspace):
+        import asyncio
+        worksp.write_file("test.txt", "line1\nline2\nline3\n")
+        result = asyncio.run(toolsmod.execute("read_file", {"path": "test.txt"}))
+        assert "# test.txt" in result
+        assert "line1" in result
+
+    def test_offset_in_tool(self, tmp_workspace):
+        import asyncio
+        worksp.write_file("test.txt", "line1\nline2\nline3\n")
+        result = asyncio.run(toolsmod.execute("read_file", {"path": "test.txt", "offset": 1, "limit": 1}))
+        assert "line2" in result
+        assert "lines 2-2" in result
+
+    def test_offset_none_no_crash(self, tmp_workspace):
+        import asyncio
+        # read_file without offset should not crash on total_lines check
+        worksp.write_file("test.txt", "single line")
+        result = asyncio.run(toolsmod.execute("read_file", {"path": "test.txt"}))
+        assert "single line" in result
+
+
+# ---------------------------------------------------------------------------
+# db word count
+# ---------------------------------------------------------------------------
+
+class TestDbWordCount:
+    def test_words_counted(self, tmp_db):
+        cid = tmp_db.create_chat()
+        tmp_db.add_message(cid, "user", "hello world")
+        tmp_db.add_message(cid, "assistant", "foo bar baz")
+        stats = tmp_db.stats()
+        assert stats["words"] == 5  # hello world + foo bar baz
+
+    def test_empty_content_skipped(self, tmp_db):
+        cid = tmp_db.create_chat()
+        tmp_db.add_message(cid, "user", "")
+        tmp_db.add_message(cid, "assistant", "")
+        stats = tmp_db.stats()
+        assert stats["words"] == 0

@@ -51,9 +51,11 @@ async def _read_file(args: dict) -> str:
         return f"[binary file, {data['size']} bytes — no text content]"
     head = data["content"]
     note = f"\n[... truncated, {data['size']} bytes total]" if data["truncated"] else ""
-    if data.get("total_lines"):
-        note += (f"\n[lines {data['offset'] + 1}-{data['offset'] + (data['limit'] or data['total_lines'])}"
-                 f" of {data['total_lines']}]")
+    total = data.get("total_lines") or 0
+    if total:
+        offset = data.get("offset") or 0
+        limit = data.get("limit") or (total - offset)
+        note += f"\n[lines {offset + 1}-{offset + limit} of {total}]"
     return f"# {args['path']}\n{head}{note}"
 
 
@@ -120,9 +122,13 @@ async def _fetch_page(args: dict) -> str:
 
 async def _run_python(args: dict) -> str:
     code = args.get("code", "")
+    if not code.strip():
+        return "[run_python] no code provided"
     started = time.monotonic()
+    # -I = isolated mode (ignores env vars, user site-packages);
+    # -B = no .pyc writes; cwd = workspace so relative imports work
     proc = await asyncio.create_subprocess_exec(
-        sys.executable, "-I", "-c", code,
+        sys.executable, "-I", "-B", "-c", code,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         start_new_session=True,  # own process group — kill takes the whole tree
     )

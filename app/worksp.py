@@ -28,7 +28,7 @@ def _resolve(rel: str) -> str:
     if not rel:
         return root
     full = os.path.realpath(os.path.join(root, rel))
-    if full != root and not full.startswith(root + os.sep):
+    if full != root and os.path.commonpath([root, full]) != root:
         raise WorkspaceError(f"Path escapes the workspace: {rel}")
     return full
 

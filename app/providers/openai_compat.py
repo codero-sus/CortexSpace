@@ -18,6 +18,26 @@ from .base import ChatRequest, Provider, ProviderError
 
 _timeout = httpx.Timeout(600.0, connect=8.0)
 
+# Shared client for connection pooling across requests
+_shared_client: httpx.AsyncClient | None = None
+_client_lock = __import__("asyncio").Lock()
+
+
+async def _get_client() -> httpx.AsyncClient:
+    global _shared_client
+    if _shared_client is None or _shared_client.is_closed:
+        async with _client_lock:
+            if _shared_client is None or _shared_client.is_closed:
+                _shared_client = httpx.AsyncClient(timeout=_timeout)
+    return _shared_client
+
+
+async def _close_shared_client() -> None:
+    global _shared_client
+    if _shared_client is not None and not _shared_client.is_closed:
+        await _shared_client.aclose()
+        _shared_client = None
+
 
 class OpenAICompatProvider(Provider):
     id = "openai_compat"
@@ -90,9 +110,9 @@ class OpenAICompatProvider(Provider):
             body["tools"] = req.tools
             body["tool_choice"] = "auto"
 
-        async with httpx.AsyncClient(timeout=_timeout) as client:
-            async with client.stream("POST", f"{self.base}/chat/completions",
-                                     json=body, headers=self._headers()) as resp:
+        client = await _get_client()
+        async with client.stream("POST", f"{self.base}/chat/completions",
+                                 json=body, headers=self._headers()) as resp:
                 if resp.status_code != 200:
                     detail = (await resp.aread()).decode("utf-8", "replace")[:500]
                     try:
@@ -158,25 +178,25 @@ class OpenAICompatProvider(Provider):
     # -- models / ping ------------------------------------------------------
 
     async def list_models(self) -> List[str]:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
-            r = await client.get(f"{self.base}/models", headers=self._headers())
-            r.raise_for_status()
-            data = r.json().get("data", [])
-            ids = [m.get("id", "") for m in data if m.get("id")]
-            return ids
+        client = await _get_client()
+        r = await client.get(f"{self.base}/models", headers=self._headers())
+        r.raise_for_status()
+        data = r.json().get("data", [])
+        ids = [m.get("id", "") for m in data if m.get("id")]
+        return ids
 
     async def ping(self) -> tuple[bool, str]:
         if not self.api_key:
             return False, "no API key set"
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(8.0)) as client:
-                r = await client.get(f"{self.base}{self.ping_path}", headers=self._headers())
-                if r.status_code == 200:
-                    if self.ping_path == "/key":
-                        label = r.json().get("label", "key")
-                        return True, f"key active ({label})"
-                    return True, f"{self.base} reachable"
-                return False, f"HTTP {r.status_code}"
+            client = await _get_client()
+            r = await client.get(f"{self.base}{self.ping_path}", headers=self._headers())
+            if r.status_code == 200:
+                if self.ping_path == "/key":
+                    label = r.json().get("label", "key")
+                    return True, f"key active ({label})"
+                return True, f"{self.base} reachable"
+            return False, f"HTTP {r.status_code}"
         except Exception as e:  # noqa: BLE001
             return False, f"cannot reach {self.base} ({type(e).__name__})"
 
