@@ -110,9 +110,7 @@ def _build_history(messages: list, user_content: str) -> list:
     # efficiency: cap total history so long chats stay fast and cheap
     HISTORY_BUDGET_CHARS = 48_000
     _total = sum(len(h.get("content") or "") for h in hist)
-    _dropped = 0
     while _total > HISTORY_BUDGET_CHARS and len(hist) > 2:
-        _dropped += 1
         _total -= len(hist[0].get("content") or "")
         hist.pop(0)
     # never leave orphaned tool messages behind after trimming (their
